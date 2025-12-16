@@ -1,0 +1,25 @@
+{
+  "deployment_url": "https://tooling.testinator.ai",
+  "auth_token": "YOUR_AUTH_TOKEN_HERE",
+  "project_id": 465,
+  "timeout": 120,
+  "ssl_verify": false,
+  "servers": {
+    "Playwright_MCP": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--caps",
+        "vision",
+        "--image-responses",
+        "allow",
+        "--viewport-size",
+        "1280x720",
+        "--timeout-action",
+        "60000"
+      ],
+      "stateful": true
+    }
+  }
+}
