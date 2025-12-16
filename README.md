@@ -21,7 +21,6 @@ uv sync
    {
      "deployment_url": "https://tooling.testinator.ai",
      "auth_token": "YOUR_AUTH_TOKEN_HERE",
-     "project_id": 465,
      "timeout": 120,
      "ssl_verify": false,
      "servers": {
@@ -57,7 +56,6 @@ testinator-connect serve
 |--------|------|-------------|
 | `deployment_url` | string | URL of testinator-tooling instance |
 | `auth_token` | string | Authorization token |
-| `project_id` | integer | Project ID for identification |
 | `timeout` | integer | Tool call timeout in seconds (default: 120) |
 | `ssl_verify` | boolean | Enable SSL verification (default: false) |
 | `servers` | object | Dictionary of MCP server configurations |

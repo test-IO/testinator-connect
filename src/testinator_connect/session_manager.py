@@ -12,6 +12,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
 from .config import load_config
+from .console import log_session, log_session_error
 
 
 class SessionManager:
@@ -84,7 +85,7 @@ class SessionManager:
             if server_name in self._sessions:
                 # Return existing session
                 _, _, session = self._sessions[server_name]
-                print(f"Reusing existing session for server: {server_name}")
+                log_session("reusing", server_name)
                 return session
 
             # Create new session
@@ -100,7 +101,7 @@ class SessionManager:
 
                     # Store the context managers and session
                     self._sessions[server_name] = (stdio_ctx, session_ctx, session)
-                    print(f"Created persistent session for stdio server: {server_name}")
+                    log_session("created", server_name, "stdio")
 
                 elif server_conf["type"].lower() == "http":
                     http_ctx = streamablehttp_client(
@@ -114,7 +115,7 @@ class SessionManager:
 
                     # Store the context managers and session
                     self._sessions[server_name] = (http_ctx, session_ctx, session)
-                    print(f"Created persistent session for HTTP server: {server_name}")
+                    log_session("created", server_name, "http")
 
                 elif server_conf["type"].lower() == "sse":
                     sse_ctx = sse_client(
@@ -128,13 +129,13 @@ class SessionManager:
 
                     # Store the context managers and session
                     self._sessions[server_name] = (sse_ctx, session_ctx, session)
-                    print(f"Created persistent session for SSE server: {server_name}")
+                    log_session("created", server_name, "sse")
                 else:
                     raise ValueError(f"Unsupported server type: {server_conf['type']}")
 
                 return self._sessions[server_name][2]
             except Exception as e:
-                print(f"Failed to create session for {server_name}: {e}")
+                log_session_error(f"Failed to create {server_name}: {e}")
                 # Clean up any partial state
                 if server_name in self._sessions:
                     del self._sessions[server_name]
@@ -155,9 +156,9 @@ class SessionManager:
                     if hasattr(ctx1, "__aexit__"):
                         await ctx1.__aexit__(None, None, None)
 
-                    print(f"Cleaned up session for server: {server_name}")
+                    log_session("closed", server_name)
                 except Exception as e:
-                    print(f"Error cleaning up session for {server_name}: {e}")
+                    log_session_error(f"Cleanup failed for {server_name}: {e}")
 
                 del self._sessions[server_name]
 
@@ -166,7 +167,7 @@ class SessionManager:
         if not self._sessions:
             return
 
-        print("Cleaning up all persistent sessions...")
+        log_session("cleanup", "all sessions")
 
         # Suppress asyncio warnings about closed loops during cleanup
         warnings.filterwarnings("ignore", message=".*Loop.*closed.*")
@@ -181,7 +182,7 @@ class SessionManager:
                     )
                     future.result(timeout=10.0)  # 10 second timeout for cleanup
                 except Exception as e:
-                    print(f"Error during async cleanup: {e}")
+                    log_session_error(f"Async cleanup: {e}")
 
                 # Stop the event loop
                 try:
@@ -198,9 +199,9 @@ class SessionManager:
                     loop.run_until_complete(self._cleanup_all_async())
                     loop.close()
                 except Exception as e:
-                    print(f"Error during fallback cleanup: {e}")
+                    log_session_error(f"Fallback cleanup: {e}")
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            log_session_error(f"Cleanup: {e}")
         finally:
             self._sessions.clear()
 
@@ -253,9 +254,9 @@ class SessionManager:
                         result.append(str(item))
                 return result if len(result) > 1 else result[0] if result else ""
             except Exception as e:
-                print(f"Error calling tool on attempt {attempt + 1}: {e}")
+                log_session_error(f"Tool call attempt {attempt + 1}: {e}")
                 if attempt < max_retries - 1:
-                    print(f"Recreating session for {server_name}...")
+                    log_session("recreating", server_name)
                     await self.cleanup_session(server_name)
                 else:
                     raise e

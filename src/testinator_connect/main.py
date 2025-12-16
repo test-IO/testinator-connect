@@ -5,59 +5,67 @@ import asyncio
 import signal
 import sys
 
+from rich.console import Console
+from rich.panel import Panel
+
 from .config import load_config, get_config_file
+from .console import log_info, log_success, log_warning, log_error
 from .sio import start_socket_connection, get_all_tools
+
+console = Console()
 
 
 def run_serve():
     """Run the serve command - connect to testinator-tooling."""
-    print("Starting testinator-connect...")
-    print(f"Config file: {get_config_file()}")
+    console.print(Panel.fit(
+        "[bold cyan]testinator-connect[/bold cyan]",
+        subtitle=f"[dim]{get_config_file()}[/dim]"
+    ))
 
     config = load_config()
 
     if not config:
-        print("Error: No configuration found.")
-        print(f"Please create a config.json file at: {get_config_file()}")
+        log_error("No configuration found")
+        log_info(f"Please create config.json at: {get_config_file()}")
         sys.exit(1)
 
     if not config.get("deployment_url"):
-        print("Error: deployment_url not configured.")
+        log_error("deployment_url not configured")
         sys.exit(1)
 
     if not config.get("servers"):
-        print("Warning: No MCP servers configured.")
+        log_warning("No MCP servers configured")
 
     # Discover tools from configured servers
-    print("Discovering tools from configured MCP servers...")
+    log_info("Discovering tools from MCP servers...")
     servers = config.get("servers", {})
 
     try:
         all_tools = asyncio.run(get_all_tools(servers))
     except Exception as e:
-        print(f"Error discovering tools: {e}")
+        log_error(f"Error discovering tools: {e}")
         all_tools = []
 
     total_tools = sum(len(s.get("tools", [])) for s in all_tools)
-    print(f"Discovered {total_tools} tools from {len(all_tools)} servers")
+    log_success(f"Found {total_tools} tools from {len(all_tools)} servers")
 
     for server in all_tools:
         server_name = server.get("name", "unknown")
         tools = server.get("tools", [])
-        print(f"  - {server_name}: {len(tools)} tools")
+        console.print(f"  [dim]•[/dim] [bold]{server_name}[/bold]: {len(tools)} tools")
 
     # Connect to testinator-tooling
-    print(f"Connecting to {config['deployment_url']}...")
+    log_info(f"Connecting to [cyan]{config['deployment_url']}[/cyan]...")
 
     try:
         sio = start_socket_connection(config, all_tools)
     except Exception as e:
-        print(f"Failed to connect: {e}")
+        log_error(f"Failed to connect: {e}")
         sys.exit(1)
 
     # Set up signal handlers for graceful shutdown
     def signal_handler(signum, frame):
-        print("\nShutting down...")
+        console.print("\n[yellow]Shutting down...[/yellow]")
         sio.disconnect()
         sys.exit(0)
 
@@ -65,7 +73,7 @@ def run_serve():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Keep the main thread alive
-    print("Ready. Press Ctrl+C to stop.")
+    console.print("[green]Ready.[/green] Press [bold]Ctrl+C[/bold] to stop.\n")
     try:
         while True:
             signal.pause()

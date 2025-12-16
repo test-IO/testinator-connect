@@ -11,6 +11,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
+from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error
 from .session_manager import get_session_manager
 
 
@@ -132,7 +133,7 @@ def start_socket_connection(
             reconnection_delay=1,
             reconnection_delay_max=5,
         )
-        print("SSL verification disabled for Socket.IO connection")
+        log_warning("SSL verification disabled")
     else:
         sio = socketio.Client(
             logger=False,
@@ -142,41 +143,38 @@ def start_socket_connection(
             reconnection_delay=1,
             reconnection_delay_max=5,
         )
-        print("SSL verification enabled for Socket.IO connection")
+        log_info("SSL verification enabled")
 
     @sio.event
     def connect():
         sio.emit(
             "mcp_connect",
             {
-                "project_id": config.get("project_id", 0),
                 "toolkit_configs": _sanitize_server_tools(all_tools),
                 "timeout_tools_list": common_timeout,
                 "timeout_tools_call": common_timeout,
             },
         )
-        print("Connected to testinator-tooling")
+        log_success("Connected to testinator-tooling")
         if notify_on_connect:
             notify_on_connect("Connected to testinator-tooling")
 
     @sio.event
     def disconnect():
-        print("Disconnected from testinator-tooling")
+        log_warning("Disconnected from testinator-tooling")
         if notify_on_disconnect:
             notify_on_disconnect("Disconnected from testinator-tooling")
         # Clean up persistent sessions when disconnecting
         session_manager = get_session_manager()
         try:
             session_manager.cleanup_all()
-            print("Cleaned up persistent sessions")
         except Exception as e:
-            print(f"Error during session cleanup: {e}")
+            log_error(f"Session cleanup error: {e}")
 
     @sio.event
     def on_mcp_tools_list(data):
         all_tools_refreshed = asyncio.run(get_all_tools(config.get("servers", {})))
         return {
-            "project_id": config.get("project_id", 0),
             "toolkit_configs": _sanitize_server_tools(all_tools_refreshed),
             "timeout_tools_list": common_timeout,
             "timeout_tools_call": common_timeout,
@@ -185,16 +183,33 @@ def start_socket_connection(
     @sio.event
     def on_mcp_tools_call(data):
         if "server" in data:
+            server_name = data["server"]
+            tool_name = data["params"].get("name", "unknown")
+            log_tool_call(server_name, tool_name)
+
             servers = config.get("servers", {})
-            server_conf = servers.get(data["server"], {})
-            tool_result = _mcp_tools_call_sync(
-                server_conf, data["params"], server_name=data["server"]
-            )
-            return tool_result
+            server_conf = servers.get(server_name, {})
+
+            try:
+                tool_result = _mcp_tools_call_sync(
+                    server_conf, data["params"], server_name=server_name
+                )
+                # Show result preview (truncate if too long)
+                if isinstance(tool_result, str):
+                    preview = tool_result[:80] + "..." if len(tool_result) > 80 else tool_result
+                elif isinstance(tool_result, list):
+                    preview = f"[{len(tool_result)} items]"
+                else:
+                    preview = str(tool_result)[:80]
+                log_tool_ok(server_name, tool_name, preview)
+                return tool_result
+            except Exception as e:
+                log_tool_error(server_name, tool_name, str(e))
+                raise
 
     @sio.event
     def on_mcp_notification(notification):
-        print(f"Platform Notification: {notification}")
+        log_info(f"Notification: {notification}")
 
     @sio.event
     def on_mcp_ping(data):
@@ -208,8 +223,8 @@ def start_socket_connection(
             retry=True,
         )
     except Exception as e:
-        print(f"Failed to connect to testinator-tooling: {e}")
-        print("Please check your network connection and try again.")
+        log_error(f"Failed to connect: {e}")
+        log_info("Please check your network connection and try again.")
         raise
 
     sio.on("mcp_tools_list", on_mcp_tools_list)
@@ -240,8 +255,8 @@ def _mcp_tools_call_sync(
             )
             return result
         except Exception as e:
-            print(f"Failed to call tool with stateful session: {e}")
-            print("Falling back to stateless session...")
+            log_error(f"Stateful session failed: {e}")
+            log_info("Falling back to stateless session...")
 
     # Use stateless session (original behavior) via async wrapper
     async def _stateless_call():
@@ -274,7 +289,7 @@ async def get_all_tools(servers: dict) -> list[dict[str, Any]]:
     for i, result in enumerate(results):
         if isinstance(result, Exception):
             server_name = list(servers.keys())[i]
-            print(f"Error processing server {server_name}: {result}")
+            log_error(f"Server {server_name}: {result}")
             continue
         # Ensure required field exists in inputSchema
         for tool in result.get("tools", []):

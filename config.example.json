@@ -1,7 +1,6 @@
 {
   "deployment_url": "https://tooling.testinator.ai",
   "auth_token": "YOUR_AUTH_TOKEN_HERE",
-  "project_id": 465,
   "timeout": 120,
   "ssl_verify": false,
   "servers": {
