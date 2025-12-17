@@ -19,8 +19,8 @@ uv sync
 2. Edit `config.json` with your settings:
    ```json
    {
-     "deployment_url": "https://tooling.testinator.ai",
-     "auth_token": "YOUR_AUTH_TOKEN_HERE",
+     "deployment_url": "URL_OF_YOUR_TOOLING_INSTANCE",
+     "auth_token": "NOT_USED_NOW",
      "timeout": 120,
      "ssl_verify": false,
      "servers": {
@@ -40,14 +40,19 @@ uv sync
    }
    ```
 
+### Playwright MCP Options
+
+| Option | Description |
+|--------|-------------|
+| `--caps vision` | Enable vision/screenshot capabilities |
+| `--image-responses allow` | Allow image data in responses |
+| `--viewport-size WxH` | Browser viewport dimensions (must match the Workflow's session viewport size) |
+| `--timeout-action N` | Action timeout in milliseconds |
+
 ## Usage
 
 ```bash
-# Run with uv
 uv run testinator-connect serve
-
-# Or if installed
-testinator-connect serve
 ```
 
 ## Configuration Options
@@ -60,60 +65,57 @@ testinator-connect serve
 | `ssl_verify` | boolean | Enable SSL verification (default: false) |
 | `servers` | object | Dictionary of MCP server configurations |
 
-### Server Configuration
+### Playwright MCP Server Configuration
 
-Each server in `servers` can be one of three types:
-
-**stdio** (subprocess):
 ```json
 {
-  "type": "stdio",
-  "command": "npx",
-  "args": ["@playwright/mcp@latest"],
-  "stateful": true
+  "Playwright_MCP": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "@playwright/mcp@latest",
+      "--caps", "vision",
+      "--image-responses", "allow",
+      "--viewport-size", "1280x720",
+      "--timeout-action", "60000"
+    ],
+    "stateful": true
+  }
 }
 ```
 
-**sse** (Server-Sent Events):
-```json
-{
-  "type": "sse",
-  "url": "https://example.com/sse",
-  "headers": {"Authorization": "Bearer token"}
-}
-```
-
-**http** (Streamable HTTP):
-```json
-{
-  "type": "http",
-  "url": "https://example.com/api",
-  "headers": {"Authorization": "Bearer token"}
-}
-```
-
-Set `"stateful": true` to maintain persistent connections between tool calls.
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `TESTINATOR_DISABLE_SSL_VERIFY` | Set to "true" to disable SSL verification |
+Set `"stateful": true` to maintain persistent browser sessions between tool calls.
 
 ## How It Works
 
-1. On startup, testinator-connect:
-   - Loads configuration from `config.json`
-   - Connects to each configured MCP server
-   - Discovers available tools
-   - Establishes Socket.IO connection to testinator-tooling
-   - Registers all tools with the platform
+```
+┌─────────────────────┐     Socket.IO      ┌─────────────────────┐
+│                     │◄──────────────────►│                     │
+│  testinator-tooling │                    │  testinator-connect │
+│      (remote)       │   tool calls &     │      (local)        │
+│                     │     results        │                     │
+└─────────────────────┘                    └──────────┬──────────┘
+                                                      │
+                                                      │ stdio
+                                                      ▼
+                                           ┌─────────────────────┐
+                                           │                     │
+                                           │    Playwright MCP   │
+                                           │     (subprocess)    │
+                                           │                     │
+                                           └──────────┬──────────┘
+                                                      │
+                                                      │ browser
+                                                      ▼
+                                           ┌─────────────────────┐
+                                           │                     │
+                                           │   Chromium Browser  │
+                                           │                     │
+                                           └─────────────────────┘
+```
 
-2. When testinator-tooling requests a tool call:
-   - testinator-connect routes the request to the appropriate MCP server
-   - Executes the tool with the provided arguments
-   - Returns the result (including any images/binary data)
+1. **Startup**: testinator-connect loads config, spawns Playwright MCP subprocess, discovers available tools, connects to testinator-tooling via Socket.IO, and registers tools.
 
-3. Stateful servers maintain persistent connections for:
-   - Faster subsequent tool calls
-   - Session state preservation (e.g., browser state in Playwright)
+2. **Tool Execution**: When testinator-tooling requests a tool call, testinator-connect routes it to Playwright MCP and returns the result (including screenshots).
+
+3. **Stateful Sessions**: Browser state persists between tool calls for faster execution and session continuity.

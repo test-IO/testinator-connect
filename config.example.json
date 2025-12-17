@@ -1,6 +1,6 @@
 {
-  "deployment_url": "https://tooling.testinator.ai",
-  "auth_token": "YOUR_AUTH_TOKEN_HERE",
+  "deployment_url": "URL_OF_YOUR_TOOLING_INSTANCE",
+  "auth_token": "NOT_USED_NOW",
   "timeout": 120,
   "ssl_verify": false,
   "servers": {
@@ -9,14 +9,10 @@
       "command": "npx",
       "args": [
         "@playwright/mcp@latest",
-        "--caps",
-        "vision",
-        "--image-responses",
-        "allow",
-        "--viewport-size",
-        "1280x720",
-        "--timeout-action",
-        "60000"
+        "--caps", "vision",
+        "--image-responses", "allow",
+        "--viewport-size", "1280x720",
+        "--timeout-action", "60000"
       ],
       "stateful": true
     }

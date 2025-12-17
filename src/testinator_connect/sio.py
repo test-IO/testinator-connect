@@ -196,11 +196,11 @@ def start_socket_connection(
                 )
                 # Show result preview (truncate if too long)
                 if isinstance(tool_result, str):
-                    preview = tool_result[:80] + "..." if len(tool_result) > 80 else tool_result
+                    preview = tool_result[:300] + "..." if len(tool_result) > 300 else tool_result
                 elif isinstance(tool_result, list):
                     preview = f"[{len(tool_result)} items]"
                 else:
-                    preview = str(tool_result)[:80]
+                    preview = str(tool_result)[:300]
                 log_tool_ok(server_name, tool_name, preview)
                 return tool_result
             except Exception as e:
