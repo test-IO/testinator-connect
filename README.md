@@ -2,6 +2,16 @@
 
 Connect local MCP servers (like Playwright MCP) to a remote testinator-tooling instance via Socket.IO.
 
+## Requirements
+
+The following repositories must be on the `feature/alita_mcp` branch:
+
+| Repository | Branch |
+|------------|--------|
+| testinator-python-agents-runner | `feature/alita_mcp` |
+| testinator-executor | `feature/alita_mcp` |
+| testinator-tooling | `feature/alita_mcp` |
+
 ## Installation
 
 ```bash
