@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from .config import load_config, get_config_file
-from .console import log_info, log_success, log_warning, log_error
+from .console import log_info, log_success, log_warning, log_error, set_tui_mode
 from .sio import start_socket_connection, get_all_tools
 
 console = Console()
@@ -84,6 +84,30 @@ def run_serve():
             time.sleep(1)
 
 
+def run_serve_tui():
+    """Run the serve command with TUI dashboard."""
+    from .tui import ConnectApp, set_app, tui_set_connected
+
+    config = load_config()
+
+    if not config:
+        console.print("[red]No configuration found[/red]")
+        console.print(f"Please create config.json at: {get_config_file()}")
+        sys.exit(1)
+
+    if not config.get("deployment_url"):
+        console.print("[red]deployment_url not configured[/red]")
+        sys.exit(1)
+
+    # Enable TUI mode for console routing
+    set_tui_mode(True)
+
+    # Create and run the TUI app with config for connection
+    app = ConnectApp(server_url=config["deployment_url"], config=config)
+    set_app(app)
+    app.run()
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -97,10 +121,19 @@ def main():
         help="Command to run",
     )
 
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Run with TUI dashboard",
+    )
+
     args = parser.parse_args()
 
     if args.command == "serve":
-        run_serve()
+        if args.tui:
+            run_serve_tui()
+        else:
+            run_serve()
 
 
 if __name__ == "__main__":

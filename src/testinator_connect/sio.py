@@ -11,7 +11,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
-from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error
+from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error, track_session_start, track_session_end
 from .session_manager import get_session_manager
 
 
@@ -182,29 +182,39 @@ def start_socket_connection(
 
     @sio.event
     def on_mcp_tools_call(data):
+        """Handle tool call with optional session-based routing."""
         if "server" in data:
             server_name = data["server"]
+            session_id = data.get("session_id")  # Optional for backward compatibility
             tool_name = data["params"].get("name", "unknown")
-            log_tool_call(server_name, tool_name)
+
+            # Build extra string for display in logs (truncated for readability)
+            extra = f"session={session_id[:8]}..." if session_id else ""
+
+            log_tool_call(server_name, tool_name, extra, session_id)
 
             servers = config.get("servers", {})
             server_conf = servers.get(server_name, {})
 
+            if not server_conf:
+                log_error(f"Unknown server: {server_name}")
+                raise ValueError(f"Unknown server: {server_name}")
+
             try:
                 tool_result = _mcp_tools_call_sync(
-                    server_conf, data["params"], server_name=server_name
+                    server_conf, data["params"], server_name=server_name, session_id=session_id
                 )
                 # Show result preview (truncate if too long)
                 if isinstance(tool_result, str):
-                    preview = tool_result[:300] + "..." if len(tool_result) > 300 else tool_result
+                    preview = tool_result[:1000] + "..." if len(tool_result) > 1000 else tool_result
                 elif isinstance(tool_result, list):
                     preview = f"[{len(tool_result)} items]"
                 else:
-                    preview = str(tool_result)[:300]
-                log_tool_ok(server_name, tool_name, preview)
+                    preview = str(tool_result)[:1000]
+                log_tool_ok(server_name, tool_name, preview, extra, session_id)
                 return tool_result
             except Exception as e:
-                log_tool_error(server_name, tool_name, str(e))
+                log_tool_error(server_name, tool_name, str(e), extra, session_id)
                 raise
 
     @sio.event
@@ -214,6 +224,106 @@ def start_socket_connection(
     @sio.event
     def on_mcp_ping(data):
         return True
+
+    @sio.event
+    def on_mcp_session_start(data):
+        """
+        Handle session start request from testinator-tooling.
+
+        Spawns a new browser subprocess for the given session ID.
+        """
+        session_id = data.get("session_id")
+        server_name = data.get("server_name")  # Optional
+
+        if not session_id:
+            return {"success": False, "error": "session_id is required", "servers": []}
+
+        session_manager = get_session_manager()
+        servers_config = config.get("servers", {})
+
+        spawned_servers = []
+        errors = []
+
+        try:
+            if server_name:
+                # Spawn specific server
+                if server_name not in servers_config:
+                    return {
+                        "success": False,
+                        "session_id": session_id,
+                        "servers": [],
+                        "error": f"Unknown server: {server_name}"
+                    }
+
+                server_conf = servers_config[server_name]
+                session_manager.create_session_instance_sync(
+                    session_id, server_name, server_conf
+                )
+                spawned_servers.append(server_name)
+            else:
+                # Spawn all stateful servers
+                for name, conf in servers_config.items():
+                    if conf.get("stateful", False):
+                        try:
+                            session_manager.create_session_instance_sync(
+                                session_id, name, conf
+                            )
+                            spawned_servers.append(name)
+                        except Exception as e:
+                            errors.append(f"{name}: {e}")
+
+            if errors and not spawned_servers:
+                # All failed
+                session_manager.destroy_session_instance_sync(session_id)
+                return {
+                    "success": False,
+                    "session_id": session_id,
+                    "servers": [],
+                    "error": "; ".join(errors)
+                }
+
+            log_success(f"Session {session_id[:8]}... started with {spawned_servers}")
+            track_session_start(session_id, spawned_servers)
+            return {
+                "success": True,
+                "session_id": session_id,
+                "servers": spawned_servers,
+                "error": "; ".join(errors) if errors else None
+            }
+
+        except Exception as e:
+            log_error(f"Session start failed for {session_id[:8]}...: {e}")
+            session_manager.destroy_session_instance_sync(session_id)
+            return {
+                "success": False,
+                "session_id": session_id,
+                "servers": [],
+                "error": str(e)
+            }
+
+    @sio.event
+    def on_mcp_session_end(data):
+        """
+        Handle session end request from testinator-tooling.
+
+        Kills the browser subprocess(es) for the given session ID.
+        """
+        session_id = data.get("session_id")
+
+        if not session_id:
+            return {"success": False, "error": "session_id is required"}
+
+        session_manager = get_session_manager()
+
+        try:
+            session_manager.destroy_session_instance_sync(session_id)
+            log_info(f"Session {session_id[:8]}... ended")
+            track_session_end(session_id)
+            return {"success": True, "session_id": session_id}
+        except Exception as e:
+            log_error(f"Session end failed for {session_id[:8]}...: {e}")
+            track_session_end(session_id)  # Clean up TUI state even on error
+            return {"success": False, "session_id": session_id, "error": str(e)}
 
     try:
         sio.connect(
@@ -231,6 +341,8 @@ def start_socket_connection(
     sio.on("mcp_tools_call", on_mcp_tools_call)
     sio.on("mcp_notification", on_mcp_notification)
     sio.on("mcp_ping", on_mcp_ping)
+    sio.on("mcp_session_start", on_mcp_session_start)
+    sio.on("mcp_session_end", on_mcp_session_end)
 
     def socketio_background_task():
         sio.wait()
@@ -242,21 +354,34 @@ def start_socket_connection(
 
 
 def _mcp_tools_call_sync(
-    server_conf: dict, params: dict, server_name: str | None = None
+    server_conf: dict,
+    params: dict,
+    server_name: str | None = None,
+    session_id: str | None = None,
 ) -> str | list[str]:
-    """Synchronous wrapper for MCP tool calls."""
+    """Synchronous wrapper for MCP tool calls.
+
+    Args:
+        server_conf: Server configuration
+        params: Tool call parameters
+        server_name: Name of the MCP server
+        session_id: If provided, uses session-isolated mode with dedicated browser
+    """
     session_manager = get_session_manager()
 
     # Check if this server should use stateful sessions
     if session_manager.is_stateful(server_conf) and server_name:
         try:
             result = session_manager.call_tool_with_recovery_sync(
-                server_name, server_conf, params
+                server_name, server_conf, params, session_id
             )
             return result
         except Exception as e:
             log_error(f"Stateful session failed: {e}")
-            log_info("Falling back to stateless session...")
+            if not session_id:
+                log_info("Falling back to stateless session...")
+            else:
+                raise
 
     # Use stateless session (original behavior) via async wrapper
     async def _stateless_call():
