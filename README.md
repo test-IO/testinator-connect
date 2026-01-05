@@ -2,6 +2,11 @@
 
 Connect local MCP servers (like Playwright MCP) to a remote testinator-tooling instance via Socket.IO.
 
+## Screenshot
+
+<!-- TODO: Add screenshot of TUI dashboard -->
+![TUI Dashboard](screenshot.png)
+
 ## Requirements
 
 The following repositories must be on the `feature/alita_mcp` branch:
@@ -42,7 +47,8 @@ uv sync
            "--caps", "vision",
            "--image-responses", "allow",
            "--viewport-size", "1280x720",
-           "--timeout-action", "60000"
+           "--timeout-action", "60000",
+           "--isolated"
          ],
          "stateful": true
        }
@@ -58,12 +64,39 @@ uv sync
 | `--image-responses allow` | Allow image data in responses |
 | `--viewport-size WxH` | Browser viewport dimensions (must match the Workflow's session viewport size) |
 | `--timeout-action N` | Action timeout in milliseconds |
+| `--isolated` | Run browser in isolated mode |
 
 ## Usage
+
+### TUI Dashboard (Default)
 
 ```bash
 uv run testinator-connect serve
 ```
+
+Launches an interactive TUI dashboard with:
+- **Sessions panel**: Track active and ended sessions with status badges
+- **Activity log**: Real-time tool call logging with timestamps
+- **Session filtering**: Click a session to filter logs, press `a` or `Escape` to show all
+- **Connection status**: Visual indicator showing connection state
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `q` | Quit |
+| `c` | Clear log |
+| `r` | Refresh sessions |
+| `a` | Show all logs |
+| `Escape` | Clear session selection |
+
+### Plain Console Mode
+
+```bash
+uv run testinator-connect serve --no-tui
+```
+
+Runs without the TUI dashboard, using simple console output instead.
 
 ## Configuration Options
 
@@ -75,7 +108,7 @@ uv run testinator-connect serve
 | `ssl_verify` | boolean | Enable SSL verification (default: false) |
 | `servers` | object | Dictionary of MCP server configurations |
 
-### Playwright MCP Server Configuration
+### MCP Server Configuration
 
 ```json
 {
@@ -87,7 +120,8 @@ uv run testinator-connect serve
       "--caps", "vision",
       "--image-responses", "allow",
       "--viewport-size", "1280x720",
-      "--timeout-action", "60000"
+      "--timeout-action", "60000",
+      "--isolated"
     ],
     "stateful": true
   }
