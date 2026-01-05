@@ -122,18 +122,18 @@ def main():
     )
 
     parser.add_argument(
-        "--tui",
+        "--no-tui",
         action="store_true",
-        help="Run with TUI dashboard",
+        help="Run without TUI dashboard (plain console output)",
     )
 
     args = parser.parse_args()
 
     if args.command == "serve":
-        if args.tui:
-            run_serve_tui()
-        else:
+        if args.no_tui:
             run_serve()
+        else:
+            run_serve_tui()
 
 
 if __name__ == "__main__":
