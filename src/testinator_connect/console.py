@@ -30,7 +30,8 @@ def log_info(message: str) -> None:
         from .tui import tui_log_info
         tui_log_info(message)
     else:
-        console.print(f"[blue]ℹ[/blue] {message}")
+        # blue-600 matching workflow
+        console.print(f"[#2563EB]ℹ[/] {message}")
 
 
 def log_success(message: str) -> None:
@@ -39,7 +40,8 @@ def log_success(message: str) -> None:
         from .tui import tui_log_success
         tui_log_success(message)
     else:
-        console.print(f"[green]✓[/green] {message}")
+        # green-500 matching workflow
+        console.print(f"[#22C55E]✓[/] {message}")
 
 
 def log_warning(message: str) -> None:
@@ -48,7 +50,8 @@ def log_warning(message: str) -> None:
         from .tui import tui_log_warning
         tui_log_warning(message)
     else:
-        console.print(f"[yellow]⚠[/yellow] {message}")
+        # amber-500 matching workflow
+        console.print(f"[#F59E0B]⚠[/] {message}")
 
 
 def log_error(message: str) -> None:
@@ -57,7 +60,8 @@ def log_error(message: str) -> None:
         from .tui import tui_log_error
         tui_log_error(message)
     else:
-        console.print(f"[red]✗[/red] {message}")
+        # red-500 matching workflow
+        console.print(f"[#EF4444]✗[/] {message}")
 
 
 def log_tool_call(server: str, tool: str, extra: str = "", session_id: str | None = None) -> None:
@@ -66,8 +70,9 @@ def log_tool_call(server: str, tool: str, extra: str = "", session_id: str | Non
         from .tui import tui_log_tool_call
         tui_log_tool_call(server, tool, extra, session_id)
     else:
-        extra_str = f" [dim]({extra})[/dim]" if extra else ""
-        console.print(f"[cyan]→[/cyan] [bold]{server}[/bold].[white]{tool}[/white]{extra_str}")
+        # cyan-500 for tool calls matching workflow
+        extra_str = f" [#9CA3AF]({extra})[/]" if extra else ""
+        console.print(f"[#06B6D4]→[/] [bold]{server}[/bold].{tool}{extra_str}")
 
 
 def log_tool_ok(server: str, tool: str, result: str, extra: str = "", session_id: str | None = None) -> None:
@@ -76,7 +81,8 @@ def log_tool_ok(server: str, tool: str, result: str, extra: str = "", session_id
         from .tui import tui_log_tool_ok
         tui_log_tool_ok(server, tool, result, session_id)
     else:
-        console.print(f"[green]✓[/green] [bold]{server}[/bold].{tool} [dim]→[/dim] {result}")
+        # green-500 for success matching workflow
+        console.print(f"[#22C55E]✓[/] {server}.{tool} [#9CA3AF]→[/] {result}")
 
 
 def log_tool_error(server: str, tool: str, error: str, extra: str = "", session_id: str | None = None) -> None:
@@ -85,7 +91,8 @@ def log_tool_error(server: str, tool: str, error: str, extra: str = "", session_
         from .tui import tui_log_tool_error
         tui_log_tool_error(server, tool, error, session_id)
     else:
-        console.print(f"[red]✗[/red] [bold]{server}[/bold].{tool} [dim]→[/dim] [red]{error}[/red]")
+        # red-500 for errors matching workflow
+        console.print(f"[#EF4444]✗[/] {server}.{tool} [#9CA3AF]→[/] [#EF4444]{error}[/]")
 
 
 def log_session(action: str, server: str, extra: str = "") -> None:
@@ -94,8 +101,9 @@ def log_session(action: str, server: str, extra: str = "") -> None:
         from .tui import tui_log_session
         tui_log_session(action, server, extra)
     else:
-        extra_str = f" [dim]({extra})[/dim]" if extra else ""
-        console.print(f"[magenta]●[/magenta] [dim]{action}[/dim] [bold]{server}[/bold]{extra_str}")
+        # purple-500 for sessions matching workflow
+        extra_str = f" [#9CA3AF]({extra})[/]" if extra else ""
+        console.print(f"[#A855F7]●[/] [#9CA3AF]{action}[/] [bold]{server}[/bold]{extra_str}")
 
 
 def log_session_error(message: str) -> None:
@@ -104,7 +112,8 @@ def log_session_error(message: str) -> None:
         from .tui import tui_log_session_error
         tui_log_session_error(message)
     else:
-        console.print(f"[red]●[/red] [red]{message}[/red]")
+        # red-500 for session errors matching workflow
+        console.print(f"[#EF4444]●[/] [#EF4444]{message}[/]")
 
 
 def track_session_start(session_id: str, servers: list[str]) -> None:

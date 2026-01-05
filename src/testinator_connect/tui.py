@@ -45,8 +45,12 @@ class StatusWidget(Static):
     server_url: reactive[str] = reactive("")
 
     def render(self) -> str:
-        status = "[green]Connected[/green]" if self.connected else "[red]Disconnected[/red]"
-        url = f"[dim]{self.server_url}[/dim]" if self.server_url else ""
+        # Use workflow colors: green-500 for connected, red-500 for disconnected
+        if self.connected:
+            status = "[#22C55E]● Connected[/]"
+        else:
+            status = "[#EF4444]● Disconnected[/]"
+        url = f"[#9CA3AF]{self.server_url}[/]" if self.server_url else ""
         return f"{status} {url}"
 
 
@@ -57,9 +61,10 @@ class SessionStats(Static):
     total_tool_calls: reactive[int] = reactive(0)
 
     def render(self) -> str:
+        # Use workflow cyan-500 for stats
         return (
-            f"Sessions: [cyan]{self.active_sessions}[/cyan] | "
-            f"Tool Calls: [cyan]{self.total_tool_calls}[/cyan]"
+            f"Sessions: [#06B6D4]{self.active_sessions}[/] | "
+            f"Tool Calls: [#06B6D4]{self.total_tool_calls}[/]"
         )
 
 
@@ -67,6 +72,7 @@ class ConnectApp(App):
     """Textual TUI application for testinator-connect."""
 
     CSS = """
+    /* Layout using theme variables */
     Screen {
         layout: grid;
         grid-size: 1 3;
@@ -76,6 +82,7 @@ class ConnectApp(App):
     #top-bar {
         height: 3;
         background: $surface;
+        border-bottom: solid $panel;
         padding: 0 1;
     }
 
@@ -85,6 +92,7 @@ class ConnectApp(App):
 
     #stats {
         width: auto;
+        color: $text-muted;
     }
 
     #main-content {
@@ -94,14 +102,15 @@ class ConnectApp(App):
     }
 
     #sessions-panel {
-        border: solid $primary;
+        border: solid $panel;
+        background: $surface;
         height: 100%;
     }
 
     #sessions-title {
-        background: $primary;
-        color: $text;
+        background: $panel;
         text-align: center;
+        text-style: bold;
         height: 1;
     }
 
@@ -110,14 +119,15 @@ class ConnectApp(App):
     }
 
     #log-panel {
-        border: solid $secondary;
+        border: solid $panel;
+        background: $surface;
         height: 100%;
     }
 
     #log-title {
-        background: $secondary;
-        color: $text;
+        background: $panel;
         text-align: center;
+        text-style: bold;
         height: 1;
     }
 
@@ -134,7 +144,8 @@ class ConnectApp(App):
         Binding("a", "show_all_logs", "All Logs"),
     ]
 
-    TITLE = "testinator-connect"
+    TITLE = "AGENTIC QA"
+    SUB_TITLE = "testinator-connect"
 
     # Reactive state
     sessions: reactive[dict[str, dict]] = reactive({}, always_update=True)
@@ -166,12 +177,15 @@ class ConnectApp(App):
 
             with Vertical(id="log-panel"):
                 yield Static("Activity Log", id="log-title")
-                yield RichLog(id="log", highlight=True, markup=True, wrap=True)
+                yield RichLog(id="log", highlight=False, markup=True, wrap=True)
 
         yield Footer()
 
     def on_mount(self) -> None:
         """Initialize the app on mount."""
+        # Use textual-light theme
+        self.theme = "textual-light"
+
         # Set up sessions table
         table = self.query_one("#sessions-table", DataTable)
         table.add_columns("Session", "Server", "Status", "Calls")
@@ -243,7 +257,7 @@ class ConnectApp(App):
         # Only display if matches current filter
         if self.selected_session_id is None or session_id == self.selected_session_id:
             log = self.query_one("#log", RichLog)
-            log.write(f"[dim]{timestamp}[/dim] {markup}")
+            log.write(f"[blue]{timestamp}[/] {markup}")
 
     def set_connected(self, connected: bool) -> None:
         """Update connection status (thread-safe)."""
@@ -289,6 +303,10 @@ class ConnectApp(App):
     def _refresh_sessions_table(self) -> None:
         """Refresh the sessions table from current state."""
         table = self.query_one("#sessions-table", DataTable)
+
+        # Save cursor position before clearing
+        saved_cursor_row = table.cursor_row
+
         table.clear()
 
         active_count = 0
@@ -296,16 +314,22 @@ class ConnectApp(App):
             short_id = session_id[:8] + "..."
             status = data["status"]
             if status == "active":
-                status_color = "green"
+                # Green badge (green-900 bg, green-200 text) - matching workflow
+                status_badge = "[#BBF7D0 on #14532D] active [/]"
                 active_count += 1
             else:
-                status_color = "dim"
+                # Gray badge (gray-700 bg, gray-300 text) - matching workflow
+                status_badge = "[#D1D5DB on #374151] ended [/]"
             table.add_row(
                 short_id,
                 data["server"],
-                f"[{status_color}]{status}[/{status_color}]",
+                status_badge,
                 str(data.get("calls", 0)),
             )
+
+        # Restore cursor position (clamped to valid range)
+        if table.row_count > 0 and saved_cursor_row >= 0:
+            table.cursor_coordinate = (min(saved_cursor_row, table.row_count - 1), 0)
 
         # Update stats (only count active sessions)
         stats = self.query_one("#stats", SessionStats)
@@ -327,7 +351,7 @@ class ConnectApp(App):
         # Display filtered entries
         for entry in self._log_entries:
             if self.selected_session_id is None or entry.session_id == self.selected_session_id:
-                log.write(f"[dim]{entry.timestamp}[/dim] {entry.markup}")
+                log.write(f"[blue]{entry.timestamp}[/] {entry.markup}")
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle session row selection."""
@@ -368,40 +392,46 @@ class ConnectApp(App):
 
 
 # Thread-safe logging functions for use from Socket.IO callbacks
+# Colors match testinator-workflow Tailwind palette
 def tui_log_info(message: str) -> None:
     """Log info message to TUI."""
     app = get_app()
     if app:
-        app.call_from_thread(app.log_message, f"[blue]i[/blue] {message}", None)
+        # blue-600
+        app.call_from_thread(app.log_message, f"[#2563EB]ℹ[/] {message}", None)
 
 
 def tui_log_success(message: str) -> None:
     """Log success message to TUI."""
     app = get_app()
     if app:
-        app.call_from_thread(app.log_message, f"[green]v[/green] {message}", None)
+        # green-500
+        app.call_from_thread(app.log_message, f"[#22C55E]✓[/] {message}", None)
 
 
 def tui_log_warning(message: str) -> None:
     """Log warning message to TUI."""
     app = get_app()
     if app:
-        app.call_from_thread(app.log_message, f"[yellow]![/yellow] {message}", None)
+        # amber-500
+        app.call_from_thread(app.log_message, f"[#F59E0B]⚠[/] {message}", None)
 
 
 def tui_log_error(message: str) -> None:
     """Log error message to TUI."""
     app = get_app()
     if app:
-        app.call_from_thread(app.log_message, f"[red]x[/red] {message}", None)
+        # red-500
+        app.call_from_thread(app.log_message, f"[#EF4444]✗[/] {message}", None)
 
 
 def tui_log_tool_call(server: str, tool: str, extra: str = "", session_id: str | None = None) -> None:
     """Log tool call to TUI."""
     app = get_app()
     if app:
-        extra_str = f" [dim]({extra})[/dim]" if extra else ""
-        markup = f"[cyan]->[/cyan] [bold]{server}[/bold].{tool}{extra_str}"
+        # cyan-500 for tool calls
+        extra_str = f" [#9CA3AF]({extra})[/]" if extra else ""
+        markup = f"[#06B6D4]→[/] [bold]{server}[/bold].{tool}{extra_str}"
 
         app.call_from_thread(app.log_message, markup, session_id)
         app.call_from_thread(app.increment_tool_calls, session_id)
@@ -411,9 +441,9 @@ def tui_log_tool_ok(server: str, tool: str, result: str, session_id: str | None 
     """Log successful tool result to TUI."""
     app = get_app()
     if app:
-        # Truncate result for display
+        # green-500 for success
         short_result = result[:100] + "..." if len(result) > 100 else result
-        markup = f"[green]v[/green] {server}.{tool} [dim]->[/dim] {short_result}"
+        markup = f"[#22C55E]✓[/] {server}.{tool} [#9CA3AF]→[/] {short_result}"
         app.call_from_thread(app.log_message, markup, session_id)
 
 
@@ -421,7 +451,8 @@ def tui_log_tool_error(server: str, tool: str, error: str, session_id: str | Non
     """Log tool error to TUI."""
     app = get_app()
     if app:
-        markup = f"[red]x[/red] {server}.{tool} [dim]->[/dim] [red]{error}[/red]"
+        # red-500 for errors
+        markup = f"[#EF4444]✗[/] {server}.{tool} [#9CA3AF]→[/] [#EF4444]{error}[/]"
         app.call_from_thread(app.log_message, markup, session_id)
 
 
@@ -429,8 +460,9 @@ def tui_log_session(action: str, server: str, extra: str = "", session_id: str |
     """Log session event to TUI."""
     app = get_app()
     if app:
-        extra_str = f" [dim]({extra})[/dim]" if extra else ""
-        markup = f"[magenta]o[/magenta] [dim]{action}[/dim] [bold]{server}[/bold]{extra_str}"
+        # purple-500 for session events
+        extra_str = f" [#9CA3AF]({extra})[/]" if extra else ""
+        markup = f"[#A855F7]●[/] [#9CA3AF]{action}[/] [bold]{server}[/bold]{extra_str}"
         app.call_from_thread(app.log_message, markup, session_id)
 
 
@@ -438,7 +470,8 @@ def tui_log_session_error(message: str, session_id: str | None = None) -> None:
     """Log session error to TUI."""
     app = get_app()
     if app:
-        app.call_from_thread(app.log_message, f"[red]o[/red] [red]{message}[/red]", session_id)
+        # red-500 for session errors
+        app.call_from_thread(app.log_message, f"[#EF4444]●[/] [#EF4444]{message}[/]", session_id)
 
 
 def tui_set_connected(connected: bool) -> None:
