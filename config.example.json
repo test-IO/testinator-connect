@@ -12,7 +12,8 @@
         "--caps", "vision",
         "--image-responses", "allow",
         "--viewport-size", "1280x720",
-        "--timeout-action", "60000"
+        "--timeout-action", "60000",
+        "--isolated"
       ],
       "stateful": true
     }
