@@ -108,27 +108,6 @@ Runs without the TUI dashboard, using simple console output instead.
 | `ssl_verify` | boolean | Enable SSL verification (default: false) |
 | `servers` | object | Dictionary of MCP server configurations |
 
-### MCP Server Configuration
-
-```json
-{
-  "Playwright_MCP": {
-    "type": "stdio",
-    "command": "npx",
-    "args": [
-      "@playwright/mcp@latest",
-      "--caps", "vision",
-      "--image-responses", "allow",
-      "--viewport-size", "1280x720",
-      "--timeout-action", "60000",
-      "--isolated"
-    ],
-    "stateful": true
-  }
-}
-```
-
-Set `"stateful": true` to maintain persistent browser sessions between tool calls.
 
 ## How It Works
 
