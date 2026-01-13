@@ -1,0 +1,14 @@
+{
+  "cookies": [
+    {
+      "name": "access-token",
+      "value": "YOUR_ACCESS_TOKEN_HERE",
+      "domain": "your-domain.example.com",
+      "path": "/",
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

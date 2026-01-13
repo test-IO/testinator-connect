@@ -36,6 +36,7 @@ uv.lock
 
 # Config with secrets (use config.example.json as template)
 config.json
+storage-state.json
 
 # OS
 .DS_Store
