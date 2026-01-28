@@ -1,6 +1,7 @@
 """Socket.IO connection handler for testinator-tooling."""
 
 import asyncio
+import hashlib
 import os
 import threading
 from typing import Any, Callable, Iterable
@@ -13,6 +14,21 @@ from mcp.client.streamable_http import streamablehttp_client
 
 from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error, track_session_start, track_session_end
 from .session_manager import get_session_manager
+
+
+def _generate_client_id(config: dict) -> str:
+    """Generate a stable client ID for reconnection tracking.
+
+    Uses auth token hash if available, otherwise generates from config.
+    """
+    auth_token = config.get("auth_token", "")
+    if auth_token:
+        # Hash the token to create a stable but non-reversible ID
+        return hashlib.sha256(auth_token.encode()).hexdigest()[:16]
+
+    # Fallback: hash deployment URL (less ideal but stable per config)
+    deployment_url = config.get("deployment_url", "")
+    return hashlib.sha256(deployment_url.encode()).hexdigest()[:16]
 
 
 def _sanitize_server_tools(all_tools: Any) -> list[dict[str, Any]]:
@@ -145,31 +161,70 @@ def start_socket_connection(
         )
         log_info("SSL verification enabled")
 
+    # Generate stable client ID for reconnection tracking
+    client_id = _generate_client_id(config)
+
     @sio.event
     def connect():
-        sio.emit(
-            "mcp_connect",
-            {
-                "toolkit_configs": _sanitize_server_tools(all_tools),
-                "timeout_tools_list": common_timeout,
-                "timeout_tools_call": common_timeout,
-            },
-        )
-        log_success("Connected to testinator-tooling")
-        if notify_on_connect:
-            notify_on_connect("Connected to testinator-tooling")
+        # Get active sessions to report for reconnection
+        session_manager = get_session_manager()
+        active_sessions = list(session_manager.list_sessions().keys())
+
+        # Use call() to get response from server (includes is_reconnect status)
+        try:
+            response = sio.call(
+                "mcp_connect",
+                {
+                    "toolkit_configs": _sanitize_server_tools(all_tools),
+                    "timeout_tools_list": common_timeout,
+                    "timeout_tools_call": common_timeout,
+                    "client_id": client_id,
+                    "active_sessions": active_sessions,
+                },
+                timeout=30,
+            )
+
+            is_reconnect = response.get("is_reconnect", False) if response else False
+
+            if is_reconnect:
+                log_success(
+                    f"Reconnected to testinator-tooling "
+                    f"(restored {len(active_sessions)} sessions)"
+                )
+                if notify_on_connect:
+                    notify_on_connect(
+                        f"Reconnected to testinator-tooling ({len(active_sessions)} sessions restored)"
+                    )
+            else:
+                log_success("Connected to testinator-tooling")
+                if notify_on_connect:
+                    notify_on_connect("Connected to testinator-tooling")
+
+        except Exception as e:
+            # Fallback to emit if call fails (older server version)
+            log_warning(f"mcp_connect call failed, using emit: {e}")
+            sio.emit(
+                "mcp_connect",
+                {
+                    "toolkit_configs": _sanitize_server_tools(all_tools),
+                    "timeout_tools_list": common_timeout,
+                    "timeout_tools_call": common_timeout,
+                    "client_id": client_id,
+                    "active_sessions": active_sessions,
+                },
+            )
+            log_success("Connected to testinator-tooling")
+            if notify_on_connect:
+                notify_on_connect("Connected to testinator-tooling")
 
     @sio.event
     def disconnect():
-        log_warning("Disconnected from testinator-tooling")
+        log_warning("Disconnected from testinator-tooling (sessions preserved for reconnection)")
         if notify_on_disconnect:
             notify_on_disconnect("Disconnected from testinator-tooling")
-        # Clean up persistent sessions when disconnecting
-        session_manager = get_session_manager()
-        try:
-            session_manager.cleanup_all()
-        except Exception as e:
-            log_error(f"Session cleanup error: {e}")
+        # NOTE: We intentionally do NOT cleanup sessions here to allow resumption
+        # after reconnection. Sessions will be reported back to the server on reconnect.
+        # Sessions are only cleaned up on explicit session_end or program exit.
 
     @sio.event
     def on_mcp_tools_list(data):
@@ -328,7 +383,10 @@ def start_socket_connection(
     try:
         sio.connect(
             config["deployment_url"],
-            headers={"Authorization": f"Bearer {config.get('auth_token', '')}"},
+            headers={
+                "Authorization": f"Bearer {config.get('auth_token', '')}",
+                "X-Client-ID": client_id,
+            },
             wait_timeout=30,
             retry=True,
         )
