@@ -2,6 +2,7 @@
 
 import json
 import os
+import uuid
 from pathlib import Path
 
 from .utils import sanitize
@@ -61,3 +62,23 @@ def save_config(config: dict) -> None:
 
     with open(str(config_file), "w") as f:
         json.dump(config, f, indent=2)
+
+
+def ensure_client_id(config: dict) -> str:
+    """
+    Ensure the config has a stable client_id.
+
+    If client_id doesn't exist, generate a new UUID and persist it.
+    This ID survives restarts and reconnections.
+
+    Args:
+        config: Configuration dictionary (will be modified in-place)
+
+    Returns:
+        The stable client_id
+    """
+    if "client_id" not in config or not config["client_id"]:
+        config["client_id"] = str(uuid.uuid4())
+        save_config(config)
+
+    return config["client_id"]

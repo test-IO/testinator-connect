@@ -3,6 +3,7 @@
 import asyncio
 import os
 import threading
+import traceback
 from typing import Any, Callable, Iterable
 
 import socketio
@@ -11,6 +12,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
+from .config import ensure_client_id
 from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error, track_session_start, track_session_end
 from .session_manager import get_session_manager
 
@@ -123,6 +125,9 @@ def start_socket_connection(
     else:
         disable_ssl_verify = not config.get("ssl_verify", False)
 
+    # NOTE: Large message handling (screenshots, snapshots) is configured on the
+    # server side via uvicorn's ws_max_size and socketio's max_http_buffer_size.
+    # Ping timeout is also configured server-side (ping_timeout=180 in socketio_server.py).
     if disable_ssl_verify:
         sio = socketio.Client(
             ssl_verify=False,
@@ -147,27 +152,36 @@ def start_socket_connection(
 
     @sio.event
     def connect():
+        # Ensure stable client_id exists and is persisted
+        client_id = ensure_client_id(config)
+
         sio.emit(
             "mcp_connect",
             {
+                "client_id": client_id,
                 "toolkit_configs": _sanitize_server_tools(all_tools),
                 "timeout_tools_list": common_timeout,
                 "timeout_tools_call": common_timeout,
             },
         )
-        log_success("Connected to testinator-tooling")
+        log_success(f"Connected to testinator-tooling (client_id={client_id[:8]}...)")
         if notify_on_connect:
             notify_on_connect("Connected to testinator-tooling")
 
     @sio.event
     def disconnect():
-        log_warning("Disconnected from testinator-tooling")
+        # Log stack trace to understand what triggered disconnect
+        stack = ''.join(traceback.format_stack())
+        log_warning(f"Disconnected from testinator-tooling")
+        log_warning(f"[DEBUG] Disconnect stack trace:\n{stack}")
         if notify_on_disconnect:
             notify_on_disconnect("Disconnected from testinator-tooling")
         # Clean up persistent sessions when disconnecting
         session_manager = get_session_manager()
         try:
+            log_warning(f"[DEBUG] About to cleanup_all sessions")
             session_manager.cleanup_all()
+            log_warning(f"[DEBUG] cleanup_all completed")
         except Exception as e:
             log_error(f"Session cleanup error: {e}")
 
@@ -201,9 +215,11 @@ def start_socket_connection(
                 raise ValueError(f"Unknown server: {server_name}")
 
             try:
+                log_info(f"[DEBUG] Tool call starting: {tool_name}")
                 tool_result = _mcp_tools_call_sync(
                     server_conf, data["params"], server_name=server_name, session_id=session_id
                 )
+                log_info(f"[DEBUG] Tool call completed: {tool_name}")
                 # Show result preview (truncate if too long)
                 if isinstance(tool_result, str):
                     preview = tool_result[:1000] + "..." if len(tool_result) > 1000 else tool_result
@@ -212,9 +228,11 @@ def start_socket_connection(
                 else:
                     preview = str(tool_result)[:1000]
                 log_tool_ok(server_name, tool_name, preview, extra, session_id)
+                log_info(f"[DEBUG] About to return result for: {tool_name}")
                 return tool_result
             except Exception as e:
                 log_tool_error(server_name, tool_name, str(e), extra, session_id)
+                log_error(f"[DEBUG] Tool call exception: {traceback.format_exc()}")
                 raise
 
     @sio.event
@@ -310,12 +328,19 @@ def start_socket_connection(
         """
         session_id = data.get("session_id")
 
+        # Log stack trace to see who triggered this
+        stack = ''.join(traceback.format_stack())
+        log_warning(f"[DEBUG] on_mcp_session_end received for {session_id[:8] if session_id else 'None'}...")
+        log_warning(f"[DEBUG] Session end data: {data}")
+        log_warning(f"[DEBUG] Session end stack trace:\n{stack}")
+
         if not session_id:
             return {"success": False, "error": "session_id is required"}
 
         session_manager = get_session_manager()
 
         try:
+            log_warning(f"[DEBUG] About to destroy session {session_id[:8]}...")
             session_manager.destroy_session_instance_sync(session_id)
             log_info(f"Session {session_id[:8]}... ended")
             track_session_end(session_id)
