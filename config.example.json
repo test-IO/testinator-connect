@@ -16,6 +16,14 @@
         "--isolated"
       ],
       "stateful": true
+    },
+    "calypso": {
+      "type": "http",
+      "url": "http://10.74.50.164:9586/mcp",
+      "headers": {
+        "X-User-Token": ""
+      },
+      "stateful": false
     }
   }
 }
