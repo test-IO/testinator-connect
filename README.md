@@ -142,3 +142,21 @@ Runs without the TUI dashboard, using simple console output instead.
 2. **Tool Execution**: When testinator-tooling requests a tool call, testinator-connect routes it to Playwright MCP and returns the result (including screenshots).
 
 3. **Stateful Sessions**: Browser state persists between tool calls for faster execution and session continuity.
+
+## Troubleshooting
+
+### Browser specified in your config is not installed
+
+If a tool call fails with:
+
+```
+Error: Browser specified in your config is not installed. Either install it (likely) or change the config.
+```
+
+Playwright MCP is running but its browser binary is missing. Install Chromium for the pinned Playwright MCP version:
+
+```bash
+npx -y --package=@playwright/mcp@0.0.61 playwright install chromium
+```
+
+Match the version to whatever `@playwright/mcp` version your `config.json` resolves to (the example above pins `@playwright/mcp@latest`, so re-run this whenever that version bumps).
