@@ -24,6 +24,15 @@
         "X-User-Token": ""
       },
       "stateful": false
+    },
+    "playstation": {
+      "type": "stdio",
+      "command": "playstation-mcp-server",
+      "args": ["serve"],
+      "env": {
+        "PS5_HOST_IP": "192.168.X.X"
+      },
+      "stateful": true
     }
   }
 }
