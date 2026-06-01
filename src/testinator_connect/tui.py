@@ -68,6 +68,28 @@ class SessionStats(Static):
         )
 
 
+class InstallationWidget(Static):
+    """Persistent identity indicator.
+
+    Shows display_name + full installation_id so the user can match
+    against workflow's connected-clients dropdown — same id is used
+    everywhere ("display_name (id_prefix…)" in workflow, full id here).
+    """
+
+    display_name: reactive[str] = reactive("")
+    installation_id: reactive[str] = reactive("")
+
+    def render(self) -> str:
+        if not self.installation_id:
+            return "[#9CA3AF]Installation: (initializing…)[/]"
+        # cyan-500 for the display_name, muted for the id
+        name = self.display_name or "(unnamed)"
+        return (
+            f"[#06B6D4]{name}[/] "
+            f"[#9CA3AF]· {self.installation_id}[/]"
+        )
+
+
 class ConnectApp(App):
     """Textual TUI application for testinator-connect."""
 
@@ -88,6 +110,12 @@ class ConnectApp(App):
 
     #status {
         width: 1fr;
+    }
+
+    #installation {
+        width: auto;
+        padding: 0 2;
+        color: $text-muted;
     }
 
     #stats {
@@ -168,6 +196,7 @@ class ConnectApp(App):
 
         with Horizontal(id="top-bar"):
             yield StatusWidget(id="status")
+            yield InstallationWidget(id="installation")
             yield SessionStats(id="stats")
 
         with Horizontal(id="main-content"):
@@ -194,6 +223,20 @@ class ConnectApp(App):
         # Set server URL in status
         status = self.query_one("#status", StatusWidget)
         status.server_url = self._server_url
+
+        # Resolve persistent installation identity once and surface it
+        # in the top bar so the user can match against workflow's
+        # connected-clients dropdown (full installation_id rendered
+        # there for copy-paste; workflow shows a short prefix).
+        from .config import load_or_create_installation_state
+
+        try:
+            installation = load_or_create_installation_state(self._config)
+            widget = self.query_one("#installation", InstallationWidget)
+            widget.installation_id = installation["installation_id"]
+            widget.display_name = installation["display_name"]
+        except Exception as e:  # noqa: BLE001
+            self.log_message(f"[#EF4444]Failed to load installation id: {e}[/]")
 
         # Log startup message
         self.log_message("[dim]TUI dashboard started[/dim]")

@@ -334,7 +334,7 @@ class SessionManager:
                 tool_result = await session.call_tool(
                     params["name"], params["arguments"]
                 )
-                return self._serialize_tool_result(tool_result.content)
+                return self._serialize_tool_result(tool_result)
             except Exception as e:
                 log_session_error(f"Tool call attempt {attempt + 1}: {e}")
                 if attempt < max_retries - 1:
@@ -361,7 +361,7 @@ class SessionManager:
                 tool_result = await session.call_tool(
                     params["name"], params["arguments"]
                 )
-                return self._serialize_tool_result(tool_result.content)
+                return self._serialize_tool_result(tool_result)
             except Exception as e:
                 log_session_error(f"Tool call attempt {attempt + 1}: {e}")
                 if attempt < max_retries - 1:
@@ -373,17 +373,31 @@ class SessionManager:
                 else:
                     raise
 
-    def _serialize_tool_result(self, content: list) -> str | list[str]:
-        """Serialize tool result content items."""
-        result = []
-        for item in content:
-            if hasattr(item, "text"):
-                result.append(item.text)
+    def _serialize_tool_result(self, tool_result: Any) -> dict:
+        """Serialize an MCP CallToolResult for the wire.
+
+        Preserves ``isError`` and per-block typing so the consumer can
+        classify into the G3 taxonomy (ok vs tool_error) instead of
+        flattening every result to a string. Each content block is
+        dumped via Pydantic's ``model_dump`` so the dict matches the
+        block schema as defined by the MCP SDK (e.g. TextContent →
+        ``{"type": "text", "text": "..."}``).
+        """
+        content_blocks: list[dict] = []
+        for item in tool_result.content or []:
+            if hasattr(item, "model_dump"):
+                content_blocks.append(item.model_dump(exclude_none=True))
+            elif hasattr(item, "text"):
+                content_blocks.append({"type": "text", "text": item.text})
             elif hasattr(item, "data"):
-                result.append(item.data)
+                content_blocks.append({"type": "binary", "data": item.data})
             else:
-                result.append(str(item))
-        return result if len(result) > 1 else result[0] if result else ""
+                content_blocks.append({"type": "unknown", "repr": str(item)})
+
+        return {
+            "isError": bool(getattr(tool_result, "isError", False)),
+            "content": content_blocks,
+        }
 
     # ========== Session-isolated mode async methods ==========
 

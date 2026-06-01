@@ -11,6 +11,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamablehttp_client
 
+from .config import load_or_create_installation_state
 from .console import log_info, log_success, log_error, log_warning, log_tool_call, log_tool_ok, log_tool_error, track_session_start, track_session_end
 from .session_manager import get_session_manager
 
@@ -34,6 +35,15 @@ def _sanitize_server_tools(all_tools: Any) -> list[dict[str, Any]]:
                         }
                     },
                     ...
+                ],
+                "resources": [
+                    {
+                        "uri": <str>,
+                        "name": <str>,
+                        "description": <str>,
+                        "mimeType": <str>
+                    },
+                    ...
                 ]
             },
             ...
@@ -52,9 +62,18 @@ def _sanitize_server_tools(all_tools: Any) -> list[dict[str, Any]]:
         if not isinstance(server, dict):
             continue
 
+        # server_info / instructions / protocol_version come from the
+        # MCP InitializeResult (see _discover_server_capabilities).
+        # They're optional and pass through unmodified — workflow's UI
+        # renders them in the "details" view of the chosen server.
+        server_info = server.get("server_info")
         sanitized_server: dict[str, Any] = {
             "name": server.get("name", "") or "",
+            "server_info": server_info if isinstance(server_info, dict) else None,
+            "instructions": server.get("instructions") if isinstance(server.get("instructions"), str) else None,
+            "protocol_version": server.get("protocol_version") if isinstance(server.get("protocol_version"), str) else None,
             "tools": [],
+            "resources": [],
         }
 
         tools = server.get("tools") or []
@@ -90,6 +109,23 @@ def _sanitize_server_tools(all_tools: Any) -> list[dict[str, Any]]:
                 "inputSchema": input_schema,
             }
             sanitized_server["tools"].append(sanitized_tool)
+
+        resources = server.get("resources") or []
+        if not isinstance(resources, Iterable) or isinstance(resources, (str, bytes)):
+            resources = []
+
+        for resource in resources:
+            # Skip invalid resource objects
+            if not isinstance(resource, dict):
+                continue
+
+            sanitized_resource = {
+                "uri": resource.get("uri", "") or "",
+                "name": resource.get("name", "") or "",
+                "description": resource.get("description", "") or "",
+                "mimeType": resource.get("mimeType", "") or "",
+            }
+            sanitized_server["resources"].append(sanitized_resource)
 
         sanitized_servers.append(sanitized_server)
 
@@ -145,6 +181,18 @@ def start_socket_connection(
         )
         log_info("SSL verification enabled")
 
+    # Persistent identity for this testinator-connect installation.
+    # installation_id is a UUID generated on first run + stored in
+    # state.json next to config.json; display_name comes from
+    # config.json (or hostname fallback). Sent on every mcp_connect so
+    # tooling + workflow can identify "this machine" across reconnects,
+    # since the Socket.IO sid changes every reconnect.
+    installation = load_or_create_installation_state(config)
+    log_info(
+        f"Installation: {installation['display_name']} "
+        f"(id={installation['installation_id'][:8]}…)"
+    )
+
     @sio.event
     def connect():
         sio.emit(
@@ -153,6 +201,8 @@ def start_socket_connection(
                 "toolkit_configs": _sanitize_server_tools(all_tools),
                 "timeout_tools_list": common_timeout,
                 "timeout_tools_call": common_timeout,
+                "installation_id": installation["installation_id"],
+                "display_name": installation["display_name"],
             },
         )
         log_success("Connected to testinator-tooling")
@@ -224,6 +274,48 @@ def start_socket_connection(
     @sio.event
     def on_mcp_ping(data):
         return True
+
+    @sio.event
+    def on_mcp_resources_read(data):
+        """Handle resource read request from testinator-tooling.
+
+        Iteration 1 uses a fresh stateless session per read for
+        simplicity — resources are typically read-only / initialization
+        data, so a per-read session spin-up cost (~1–2s for stdio) is
+        acceptable. A future optimization can route through the
+        stateful session_manager the same way tool calls do.
+        """
+        server_name = data.get("server")
+        params = data.get("params", {})
+        uri = params.get("uri")
+
+        if not server_name or not uri:
+            return {
+                "isError": True,
+                "content": [{"type": "text", "text": "server and params.uri are required"}],
+            }
+
+        servers = config.get("servers", {})
+        server_conf = servers.get(server_name)
+        if not server_conf:
+            log_error(f"Unknown server: {server_name}")
+            return {
+                "isError": True,
+                "content": [{"type": "text", "text": f"Unknown server: {server_name}"}],
+            }
+
+        log_info(f"Reading resource {server_name}::{uri}")
+
+        try:
+            result = _mcp_resources_read_sync(server_conf, uri)
+            log_info(f"Read resource {server_name}::{uri} ok")
+            return result
+        except Exception as e:
+            log_error(f"Read resource {server_name}::{uri} failed: {e}")
+            return {
+                "isError": True,
+                "content": [{"type": "text", "text": str(e)}],
+            }
 
     @sio.event
     def on_mcp_session_start(data):
@@ -339,6 +431,7 @@ def start_socket_connection(
 
     sio.on("mcp_tools_list", on_mcp_tools_list)
     sio.on("mcp_tools_call", on_mcp_tools_call)
+    sio.on("mcp_resources_read", on_mcp_resources_read)
     sio.on("mcp_notification", on_mcp_notification)
     sio.on("mcp_ping", on_mcp_ping)
     sio.on("mcp_session_start", on_mcp_session_start)
@@ -351,6 +444,20 @@ def start_socket_connection(
     socketio_thread.start()
 
     return sio
+
+
+def _mcp_resources_read_sync(server_conf: dict, uri: str) -> dict:
+    """Synchronous wrapper for MCP resource reads.
+
+    Always uses a fresh stateless session — see ``on_mcp_resources_read``
+    docstring for the rationale.
+    """
+    session_manager = get_session_manager()
+
+    async def _read():
+        return await _mcp_resources_read(server_conf, uri)
+
+    return session_manager._run_in_loop(_read())
 
 
 def _mcp_tools_call_sync(
@@ -427,46 +534,90 @@ async def get_all_tools(servers: dict) -> list[dict[str, Any]]:
 
 
 async def _process_server(server_name: str, server_conf: dict) -> dict[str, Any]:
-    """Connect to an MCP server and discover its tools."""
+    """Connect to an MCP server and discover its tools + resources."""
     server_type = server_conf.get("type", "stdio").lower()
 
     if server_type == "stdio":
         server_parameters = StdioServerParameters(**server_conf)
         async with stdio_client(server_parameters) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
-                tools_response = await session.list_tools()
-                return {
-                    "name": server_name,
-                    "tools": [tool.model_dump() for tool in tools_response.tools],
-                }
+                return await _discover_server_capabilities(session, server_name)
 
     elif server_type == "http":
         async with streamablehttp_client(
             server_conf["url"], server_conf.get("headers", {})
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                tools_response = await session.list_tools()
-                return {
-                    "name": server_name,
-                    "tools": [tool.model_dump() for tool in tools_response.tools],
-                }
+                return await _discover_server_capabilities(session, server_name)
 
     elif server_type == "sse":
         async with sse_client(
             server_conf["url"], server_conf.get("headers", {})
         ) as streams:
             async with ClientSession(*streams) as session:
-                await session.initialize()
-                tools_response = await session.list_tools()
-                return {
-                    "name": server_name,
-                    "tools": [tool.model_dump() for tool in tools_response.tools],
-                }
+                return await _discover_server_capabilities(session, server_name)
 
     else:
         raise ValueError(f"Unsupported server type: {server_type}")
+
+
+async def _discover_server_capabilities(session: ClientSession, server_name: str) -> dict[str, Any]:
+    """Initialize and inventory tools + resources for one MCP server.
+
+    Captures `InitializeResult` (server_info, instructions, protocol
+    version) so the workflow UI can show a richer description of each
+    MCP server beyond just its config-file name. Tools and resources
+    are best-effort — many MCP servers don't implement resources/* and
+    will raise on list_resources; we log and proceed with an empty
+    list rather than failing the whole server's discovery.
+
+    Returned dict shape:
+      {
+        "name": <config-file key, e.g. "poker_auction">,
+        "server_info": {"name", "version"} | None,
+        "instructions": <free-form text the server provides> | None,
+        "protocol_version": <e.g. "2024-11-05"> | None,
+        "tools": [<Tool.model_dump>, ...],
+        "resources": [<Resource.model_dump(mode='json')>, ...],
+      }
+    """
+    init_result = await session.initialize()
+
+    # server_info / instructions / protocolVersion are part of
+    # InitializeResult per the MCP spec. Capture defensively — older
+    # SDKs may not populate every field.
+    server_info: dict[str, Any] | None = None
+    if getattr(init_result, "serverInfo", None) is not None:
+        server_info = init_result.serverInfo.model_dump(mode="json", exclude_none=True)
+
+    instructions = getattr(init_result, "instructions", None)
+    protocol_version = getattr(init_result, "protocolVersion", None)
+
+    tools_response = await session.list_tools()
+    tools = [tool.model_dump(mode="json") for tool in tools_response.tools]
+
+    resources: list[dict[str, Any]] = []
+    try:
+        resources_response = await session.list_resources()
+        # mode="json" converts non-JSON-native pydantic types (notably
+        # ``Resource.uri`` which is an ``AnyUrl``) into their JSON
+        # representation (string). Without this, socketio.emit silently
+        # fails to serialize the mcp_connect payload and the client
+        # never registers on the tooling side.
+        resources = [r.model_dump(mode="json") for r in resources_response.resources]
+    except Exception as e:
+        # Servers without resource support will raise McpError(method not found)
+        # or similar. Don't let that take down the whole discovery.
+        log_info(f"Server {server_name}: list_resources unavailable ({type(e).__name__}); proceeding with no resources")
+
+    return {
+        "name": server_name,
+        "server_info": server_info,
+        "instructions": instructions,
+        "protocol_version": protocol_version,
+        "tools": tools,
+        "resources": resources,
+    }
 
 
 async def _mcp_tools_call(
@@ -483,7 +634,7 @@ async def _mcp_tools_call(
                 tool_result = await session.call_tool(
                     params["name"], params["arguments"]
                 )
-                return _serialize_tool_result(tool_result.content)
+                return _serialize_tool_result(tool_result)
 
     elif server_type == "http":
         async with streamablehttp_client(
@@ -494,7 +645,7 @@ async def _mcp_tools_call(
                 tool_result = await session.call_tool(
                     params["name"], params["arguments"]
                 )
-                return _serialize_tool_result(tool_result.content)
+                return _serialize_tool_result(tool_result)
 
     elif server_type == "sse":
         async with sse_client(
@@ -505,25 +656,122 @@ async def _mcp_tools_call(
                 tool_result = await session.call_tool(
                     params["name"], params["arguments"]
                 )
-                return _serialize_tool_result(tool_result.content)
+                return _serialize_tool_result(tool_result)
 
     else:
         raise ValueError(f"Unsupported server type: {server_type}")
 
 
-def _serialize_tool_result(content: list) -> str | list[str]:
-    """
-    Serialize tool result content items.
+async def _mcp_resources_read(server_conf: dict, uri: str) -> dict:
+    """Async function for stateless MCP resource reads.
 
-    Handles both text content and binary data (like images).
-    Returns all content items, not just the first one.
+    Returns the same ``{isError, content: [block, ...]}`` shape as
+    ``_serialize_tool_result`` so the tooling-side adapter / runner can
+    treat tool calls and resource reads with the same downstream
+    decoding logic.
     """
-    result = []
-    for item in content:
-        if hasattr(item, "text"):
-            result.append(item.text)
-        elif hasattr(item, "data"):
-            result.append(item.data)
+    server_type = server_conf.get("type", "stdio").lower()
+
+    if server_type == "stdio":
+        server_parameters = StdioServerParameters(**server_conf)
+        async with stdio_client(server_parameters) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.read_resource(uri)
+                return _serialize_resource_result(result)
+
+    elif server_type == "http":
+        async with streamablehttp_client(
+            server_conf["url"], server_conf.get("headers", {})
+        ) as (read_stream, write_stream, _):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                result = await session.read_resource(uri)
+                return _serialize_resource_result(result)
+
+    elif server_type == "sse":
+        async with sse_client(
+            server_conf["url"], server_conf.get("headers", {})
+        ) as streams:
+            async with ClientSession(*streams) as session:
+                await session.initialize()
+                result = await session.read_resource(uri)
+                return _serialize_resource_result(result)
+
+    else:
+        raise ValueError(f"Unsupported server type: {server_type}")
+
+
+def _serialize_resource_result(result: Any) -> dict:
+    """Serialize an MCP ReadResourceResult for the wire.
+
+    ``ReadResourceResult.contents`` is a list of ``TextResourceContents``
+    (with ``text`` + ``mimeType``) or ``BlobResourceContents`` (with
+    ``blob`` + ``mimeType``). We project each into a content-block dict
+    that mirrors the ``CallToolResult.content`` shape so downstream
+    consumers (tooling adapter, runner) decode resources and tool
+    results with the same machinery.
+
+    Resources don't have an ``isError`` field on the MCP side — failures
+    raise. ``isError=False`` here matches the on-success-only contract.
+
+    Critical: ``TextResourceContents.uri`` is a pydantic ``AnyUrl``, not a
+    string. Without coercion the socketio ACK silently fails to JSON-encode
+    and the caller times out at 60s — same bug we fixed for
+    ``Resource.uri`` in ``_discover_server_capabilities``.
+    """
+    contents: list[dict] = []
+    for item in getattr(result, "contents", []) or []:
+        uri = getattr(item, "uri", None)
+        uri_str = str(uri) if uri is not None else None
+        if hasattr(item, "text") and item.text is not None:
+            contents.append({
+                "type": "text",
+                "text": item.text,
+                "uri": uri_str,
+                "mimeType": getattr(item, "mimeType", None),
+            })
+        elif hasattr(item, "blob") and item.blob is not None:
+            contents.append({
+                "type": "blob",
+                "blob": item.blob,
+                "uri": uri_str,
+                "mimeType": getattr(item, "mimeType", None),
+            })
+        elif hasattr(item, "model_dump"):
+            # mode="json" handles AnyUrl + any other non-JSON-native pydantic types
+            contents.append(item.model_dump(mode="json", exclude_none=True))
         else:
-            result.append(str(item))
-    return result if len(result) > 1 else result[0] if result else ""
+            contents.append({"type": "unknown", "repr": str(item)})
+
+    return {
+        "isError": False,
+        "content": contents,
+    }
+
+
+def _serialize_tool_result(tool_result: Any) -> dict:
+    """Serialize an MCP CallToolResult for the wire.
+
+    Preserves ``isError`` and per-block typing so the consumer can
+    classify into the G3 taxonomy (ok vs tool_error) instead of
+    flattening every result to a string. Each content block is
+    dumped via Pydantic's ``model_dump`` so the dict matches the
+    block schema as defined by the MCP SDK (e.g. TextContent →
+    ``{"type": "text", "text": "..."}``).
+    """
+    content_blocks: list[dict] = []
+    for item in tool_result.content or []:
+        if hasattr(item, "model_dump"):
+            content_blocks.append(item.model_dump(exclude_none=True))
+        elif hasattr(item, "text"):
+            content_blocks.append({"type": "text", "text": item.text})
+        elif hasattr(item, "data"):
+            content_blocks.append({"type": "binary", "data": item.data})
+        else:
+            content_blocks.append({"type": "unknown", "repr": str(item)})
+
+    return {
+        "isError": bool(getattr(tool_result, "isError", False)),
+        "content": content_blocks,
+    }
