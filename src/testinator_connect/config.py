@@ -2,6 +2,8 @@
 
 import json
 import os
+import socket
+import uuid
 from pathlib import Path
 
 from .utils import sanitize
@@ -19,6 +21,71 @@ def get_config_dir() -> Path:
 def get_config_file() -> Path:
     """Return the path to the configuration file."""
     return get_config_dir() / "config.json"
+
+
+def get_state_file() -> Path:
+    """Return the path to the per-installation state file.
+
+    Lives next to config.json so it's easy to inspect / delete. Holds
+    the persistent ``installation_id`` (a UUID generated on first run)
+    used by testinator-tooling + workflow to identify this installation
+    across reconnects, since the Socket.IO sid changes every reconnect.
+    """
+    return get_config_dir() / "state.json"
+
+
+def load_or_create_installation_state(config: dict | None = None) -> dict:
+    """Return persistent state, creating state.json on first run.
+
+    Persisted fields:
+      - ``installation_id``: UUID4, generated once, never changes.
+
+    Computed each run (not persisted, so config.json edits take effect
+    immediately):
+      - ``display_name``: from ``config["display_name"]`` if set,
+        otherwise socket.gethostname(), otherwise ``"testinator-connect"``.
+
+    Returns ``{"installation_id": str, "display_name": str}``.
+    """
+    state_file = get_state_file()
+    state: dict = {}
+    if state_file.exists():
+        try:
+            with open(str(state_file), "r") as f:
+                state = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            state = {}
+
+    if not state.get("installation_id"):
+        state["installation_id"] = str(uuid.uuid4())
+        try:
+            with open(str(state_file), "w") as f:
+                json.dump(state, f, indent=2)
+        except OSError:
+            # Best-effort persistence — if we can't write, we'll still
+            # send a non-empty installation_id this run but a new one
+            # next time.
+            pass
+
+    cfg = config or {}
+    display_name = (
+        (cfg.get("display_name") or "").strip()
+        or _safe_hostname()
+        or "testinator-connect"
+    )
+
+    return {
+        "installation_id": state["installation_id"],
+        "display_name": display_name,
+    }
+
+
+def _safe_hostname() -> str | None:
+    """Hostname without raising on weird platforms."""
+    try:
+        return socket.gethostname()
+    except OSError:
+        return None
 
 
 def load_config() -> dict:
