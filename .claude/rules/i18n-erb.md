@@ -1,1 +1,0 @@
-../../../testinator-dev/.claude/rules/i18n-erb.md

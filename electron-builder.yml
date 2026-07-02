@@ -1,0 +1,62 @@
+appId: ai.agenticqa.connect
+productName: Agentic QA - connect
+copyright: Copyright © 2024
+
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.*}'
+
+asarUnpack:
+  - resources/**
+  - node_modules/@playwright/mcp/**
+  - node_modules/playwright/**
+  - node_modules/playwright-core/**
+  - node_modules/@playwright/mcp/node_modules/playwright/**
+  - node_modules/@playwright/mcp/node_modules/playwright-core/**
+
+extraResources:
+  - from: resources/
+    to: .
+    filter:
+      - uv-macos-arm64
+      - uv-macos-x64
+      - uv-windows-x64.exe
+
+mac:
+  icon: images/macos/icon.icns
+  identity: "-"
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+
+win:
+  icon: images/windows/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+linux:
+  icon: images/linux/icons
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Agentic QA - connect

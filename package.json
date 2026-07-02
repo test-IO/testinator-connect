@@ -1,0 +1,36 @@
+{
+  "name": "agentic-qa-connect",
+  "version": "1.0.0",
+  "description": "Agentic QA - connect: desktop UI for configuring and monitoring Agentic QA connect",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "ELECTRON_RUN_AS_NODE= electron-vite preview",
+    "pack": "npm run build && electron-builder --publish never",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac:signed": "dotenv -e .env.local -- npm run dist:mac",
+    "dist:win": "npm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@playwright/mcp": "^0.0.76",
+    "socket.io-client": "^4.7.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "dotenv-cli": "^8.0.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-vite": "^2.3.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.6.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.61.0"
+  }
+}

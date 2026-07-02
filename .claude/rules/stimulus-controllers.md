@@ -1,1 +1,0 @@
-../../../testinator-dev/.claude/rules/stimulus-controllers.md
