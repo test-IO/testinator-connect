@@ -1,1 +1,0 @@
-../../../testinator-dev/.claude/rules/svg-icons.md
