@@ -24,7 +24,7 @@
     "@tsconfig/svelte": "^5.0.4",
     "dotenv-cli": "^8.0.0",
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
