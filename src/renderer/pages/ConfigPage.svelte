@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { AppConfig } from '../../shared/ipc-types'
+  import { deepLinkPrefill } from '../lib/ipc.svelte'
 
   // ── connection state ─────────────────────────────────────────────────────────
   let deploymentUrl = $state('')
@@ -14,6 +15,7 @@
   let restartNotice = $state(false)
   let loadError = $state('')
   let saveError = $state('')
+  let deepLinkApplied = $state(false)
 
   // ── playwright config state ──────────────────────────────────────────────────
   let pwBrowser = $state('chromium')
@@ -134,6 +136,8 @@
   }
 
   // ── lifecycle ────────────────────────────────────────────────────────────────
+  let configLoaded = $state(false)
+
   onMount(async () => {
     try {
       savedConfig = await window.electronAPI.loadConfig()
@@ -147,8 +151,23 @@
         if (pw?.args) parsePlaywrightArgs(pw.args)
       }
     } catch (e) { loadError = String(e) }
+    configLoaded = true
     await checkBrowser()
     window.electronAPI.onPlaywrightInstallProgress((line) => { installLog += line })
+  })
+
+  // Prefill (not auto-save) from a deep link — the user still reviews and
+  // clicks Save, so an already-connected instance is never silently
+  // redirected to a different deployment out from under them. Gated on
+  // configLoaded so a deep link that arrives while the initial loadConfig()
+  // is still in flight doesn't get clobbered once that load resolves.
+  $effect(() => {
+    if (deepLinkPrefill.deploymentUrl !== null && configLoaded) {
+      deploymentUrl = deepLinkPrefill.deploymentUrl
+      deepLinkPrefill.deploymentUrl = null
+      deepLinkApplied = true
+      setTimeout(() => { deepLinkApplied = false }, 8000)
+    }
   })
 
   $effect(() => {
@@ -222,6 +241,11 @@
 
   {#if loadError}<div class="banner error">Failed to load config: {loadError}</div>{/if}
   {#if saveError}<div class="banner error">{saveError}</div>{/if}
+  {#if deepLinkApplied}
+    <div class="banner notice">
+      Deployment URL prefilled from link. Review and click <strong>Save</strong> to apply.
+    </div>
+  {/if}
   {#if restartNotice}
     <div class="banner notice">
       Settings saved. <strong>Restart the service</strong> on the Dashboard for changes to take effect.

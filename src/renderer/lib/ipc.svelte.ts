@@ -17,6 +17,7 @@ export const tools: ToolInfo[] = $state([])
 export const toolCalls: ToolCallRecord[] = $state([])
 export const resources: ResourceInfo[] = $state([])
 export const resourceReads: ResourceReadRecord[] = $state([])
+export const deepLinkPrefill: { deploymentUrl: string | null } = $state({ deploymentUrl: null })
 
 export function initIpc(): void {
   window.electronAPI.onLogEntry((entry) => {
@@ -79,6 +80,10 @@ export function initIpc(): void {
       resourceReads.unshift(record)
       if (resourceReads.length > 500) resourceReads.splice(500)
     }
+  })
+
+  window.electronAPI.onDeepLinkConfig((payload) => {
+    deepLinkPrefill.deploymentUrl = payload.deploymentUrl
   })
 }
 

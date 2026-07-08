@@ -8,6 +8,7 @@ import type {
   ToolCallRecord,
   ResourceInfo,
   ResourceReadRecord,
+  DeepLinkConfigPayload,
 } from '../shared/ipc-types'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 
@@ -57,5 +58,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_TO_MAIN.PLAYWRIGHT_INSTALL, browser, sudoPassword),
   onPlaywrightInstallProgress: (cb: (line: string) => void): void => {
     ipcRenderer.on(IPC_TO_RENDERER.PLAYWRIGHT_INSTALL_PROGRESS, (_e, line) => cb(line))
+  },
+  onDeepLinkConfig: (cb: (payload: DeepLinkConfigPayload) => void): void => {
+    ipcRenderer.on(IPC_TO_RENDERER.DEEP_LINK_CONFIG, (_e, payload) => cb(payload))
   },
 })
