@@ -2,6 +2,11 @@ appId: ai.agenticqa.connect
 productName: Agentic QA - connect
 copyright: Copyright © 2024
 
+protocols:
+  name: Agentic QA Connect
+  schemes:
+    - agentic-qa-connect
+
 directories:
   buildResources: resources
   output: dist

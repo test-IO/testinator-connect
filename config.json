@@ -1,0 +1,21 @@
+{
+  "deployment_url": "http://localhost:8000",
+  "auth_token": "NOT_USED_NOW",
+  "timeout": 120,
+  "ssl_verify": false,
+  "servers": {
+    "Playwright_MCP": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--caps", "vision",
+        "--image-responses", "allow",
+        "--viewport-size", "1280x720",
+        "--timeout-action", "60000",
+        "--isolated"
+      ],
+      "stateful": true
+    }
+  }
+}

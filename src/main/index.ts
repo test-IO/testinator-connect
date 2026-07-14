@@ -13,8 +13,17 @@ import { ConnectService } from './service/connect-service'
 import { sessionManager } from './service/session-manager'
 import { discoverServerTools } from './service/mcp-client'
 import { installBrowser, isBrowserInstalled } from './playwright'
+import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
-import type { AppConfig, ServerConfig } from '../shared/ipc-types'
+import type { AppConfig, ServerConfig, DeepLinkConfigPayload } from '../shared/ipc-types'
+
+// Only one instance may run — deep links delivered to a second launch must
+// reach the already-running window instead of spawning a duplicate app.
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+  process.exit(0)
+}
 
 // Extend PATH so that `npx` and other tools are found when the app is packaged
 if (process.platform !== 'win32') {
@@ -26,6 +35,20 @@ if (process.platform !== 'win32') {
 }
 
 let mainWindow: BrowserWindow | null = null
+let pendingDeepLink: DeepLinkConfigPayload | null = null
+
+function handleDeepLink(rawUrl: string): void {
+  const payload = parseDeepLink(rawUrl)
+  if (!payload) return
+
+  if (mainWindow && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send(IPC_TO_RENDERER.DEEP_LINK_CONFIG, payload)
+    mainWindow.show()
+    mainWindow.focus()
+  } else {
+    pendingDeepLink = payload
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -48,6 +71,13 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (pendingDeepLink) {
+      mainWindow?.webContents.send(IPC_TO_RENDERER.DEEP_LINK_CONFIG, pendingDeepLink)
+      pendingDeepLink = null
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -132,12 +162,45 @@ function registerIpcHandlers(): void {
   })
 }
 
+// macOS delivers deep links via 'open-url' instead of argv; register before
+// whenReady since it can fire while the app is still launching.
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+// Windows/Linux "already running" case: the OS relaunches the exe with the
+// URL as an argv entry, and requestSingleInstanceLock funnels it here.
+app.on('second-instance', (_event, argv) => {
+  const url = extractDeepLinkUrl(argv)
+  if (url) handleDeepLink(url)
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  }
+})
+
 app.whenReady().then(() => {
   if (process.platform === 'darwin' && !app.isPackaged) {
     app.dock?.setIcon(join(app.getAppPath(), 'images/macos/1024x1024.png'))
   }
+
+  if (process.platform === 'win32' && !app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL, process.execPath, [
+      join(__dirname, '../../out/main/index.js'),
+    ])
+  } else {
+    app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL)
+  }
+
   createWindow()
   registerIpcHandlers()
+
+  // Windows/Linux cold-launch: no other instance was running (so
+  // 'second-instance' never fired) and it's not macOS (so 'open-url' never
+  // fires) — the URL only arrives via this process's own argv.
+  const initialUrl = extractDeepLinkUrl(process.argv)
+  if (initialUrl) handleDeepLink(initialUrl)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

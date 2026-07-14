@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { initIpc } from './lib/ipc.svelte'
+  import { initIpc, deepLinkPrefill } from './lib/ipc.svelte'
   import ConfigPage from './pages/ConfigPage.svelte'
   import DashboardPage from './pages/DashboardPage.svelte'
   import McpServersPage from './pages/McpServersPage.svelte'
@@ -11,6 +11,12 @@
 
   onMount(() => {
     initIpc()
+  })
+
+  // A deep link always means "go configure the deployment URL" — jump to
+  // the Config tab so the prefilled field/banner is immediately visible.
+  $effect(() => {
+    if (deepLinkPrefill.deploymentUrl !== null) activeTab = 'config'
   })
 </script>
 
