@@ -35,9 +35,11 @@ jobs:
 
           chmod +x resources/uv-macos-arm64 resources/uv-macos-x64
 
-      - name: Compute version from short SHA
+      - name: Compute version from package.json + short SHA
         id: version
-        run: echo "version=0.0.0-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          pkg_version=$(node -p "require('./package.json').version")
+          echo "version=${pkg_version}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: npm run build
@@ -80,12 +82,13 @@ jobs:
           Expand-Archive -Path $tmp -DestinationPath "$env:TEMP\uv-win" -Force
           Move-Item "$env:TEMP\uv-win\uv.exe" "resources\uv-windows-x64.exe" -Force
 
-      - name: Compute version from short SHA
+      - name: Compute version from package.json + short SHA
         id: version
         shell: pwsh
         run: |
+          $pkgVersion = node -p "require('./package.json').version"
           $sha = git rev-parse --short HEAD
-          echo "version=0.0.0-$sha" >> $env:GITHUB_OUTPUT
+          echo "version=$pkgVersion-$sha" >> $env:GITHUB_OUTPUT
 
       - name: Build
         run: npm run build
@@ -109,13 +112,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Delete all but the newest 0.0.0-<sha> release
+      - name: Delete all but the newest <version>-<sha> release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mapfile -t tags < <(gh release list --repo test-IO/testinator-connect --json tagName,createdAt \
-            --jq '[.[] | select(.tagName | startswith("0.0.0-"))] | sort_by(.createdAt) | reverse | .[].tagName')
+            --jq '[.[] | select(.tagName | test("-[0-9a-f]{7,40}$"))] | sort_by(.createdAt) | reverse | .[].tagName')
           for tag in "${tags[@]:1}"; do
             echo "Deleting old release $tag"
             gh release delete "$tag" --repo test-IO/testinator-connect --yes --cleanup-tag
