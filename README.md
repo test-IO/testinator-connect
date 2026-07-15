@@ -379,6 +379,30 @@ The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform bin
 
 ---
 
+## FAQ
+
+### macOS says "Apple could not verify this app is free of malware" — how do I open it?
+
+Release builds of this app are currently **not code-signed or notarized** (see [Code signing setup](#code-signing-setup)), so macOS Gatekeeper blocks it by default when downloaded from the internet. This does not mean the app is unsafe — it just hasn't gone through Apple's paid notarization process. To open it anyway:
+
+**Option A — Right-click to open (recommended, GUI only)**
+
+1. In Finder, right-click (or Control-click) `Agentic QA - connect.app`
+2. Choose **Open** from the context menu
+3. Click **Open** again in the dialog that appears
+
+This bypasses Gatekeeper for that specific app without disabling any system-wide protection. On recent macOS versions, the first right-click → Open may just dismiss the original warning — repeat right-click → Open once more to get a dialog with a real **Open** button.
+
+**Option B — Terminal (clears the quarantine attribute)**
+
+```bash
+xattr -cr "/Applications/Agentic QA - connect.app"
+```
+
+Run this after moving the app to `/Applications`, then launch normally.
+
+---
+
 ## Key dependencies
 
 | Package | Version | Purpose |
