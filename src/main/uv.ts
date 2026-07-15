@@ -2,6 +2,7 @@ import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import { isPlaywrightMcpCommand, resolvePlaywrightMcpCommand } from './playwright'
+import { isNpxCommand, resolveNpxCommand } from './npx'
 
 function getUvPath(): string {
   const base = app.isPackaged
@@ -23,6 +24,10 @@ export function resolveCommand(
 ): { command: string; args: string[]; env?: Record<string, string> } {
   if (isPlaywrightMcpCommand(command, args)) {
     return resolvePlaywrightMcpCommand(args)
+  }
+
+  if (isNpxCommand(command)) {
+    return resolveNpxCommand(args)
   }
 
   if (!PYTHON_COMMANDS.has(command)) {

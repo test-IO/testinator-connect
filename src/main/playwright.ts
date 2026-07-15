@@ -6,11 +6,11 @@ import { spawn } from 'child_process'
 // Run Electron's own binary as plain Node (via ELECTRON_RUN_AS_NODE) instead of
 // relying on a system-installed `node` on PATH, which packaged end-user installs
 // often don't have.
-function findNode(): string {
+export function findNode(): string {
   return process.execPath
 }
 
-function getNodeModulesRoot(): string {
+export function getNodeModulesRoot(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules')
   }
