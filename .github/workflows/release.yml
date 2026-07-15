@@ -53,8 +53,7 @@ jobs:
         run: |
           npx electron-builder --mac \
             --publish always \
-            --config.extraMetadata.version=${{ steps.version.outputs.version }} \
-            --config.publish.releaseType=prerelease
+            --config.extraMetadata.version=${{ steps.version.outputs.version }}
 
   release-windows:
     name: Release Windows
@@ -97,6 +96,23 @@ jobs:
         run: |
           npx electron-builder --win `
             --publish always `
-            --config.extraMetadata.version=${{ steps.version.outputs.version }} `
-            --config.publish.releaseType=prerelease
+            --config.extraMetadata.version=${{ steps.version.outputs.version }}
         shell: pwsh
+
+  cleanup-old-releases:
+    name: Remove older dev releases
+    needs: [release-macos, release-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete all but the newest 0.0.0-<sha> release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t tags < <(gh release list --repo test-IO/testinator-connect --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("0.0.0-"))] | sort_by(.createdAt) | reverse | .[].tagName')
+          for tag in "${tags[@]:1}"; do
+            echo "Deleting old release $tag"
+            gh release delete "$tag" --repo test-IO/testinator-connect --yes --cleanup-tag
+          done
