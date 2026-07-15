@@ -15,6 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/mcp": "^0.0.76",
+    "npm": "^10.9.8",
     "socket.io-client": "^4.7.0"
   },
   "devDependencies": {
