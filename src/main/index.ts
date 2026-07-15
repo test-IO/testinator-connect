@@ -100,6 +100,10 @@ function registerIpcHandlers(): void {
     return loadConfig()
   })
 
+  ipcMain.handle(IPC_TO_MAIN.APP_GET_VERSION, (): string => {
+    return app.isPackaged ? app.getVersion() : 'dev'
+  })
+
   ipcMain.handle(IPC_TO_MAIN.CONFIG_SAVE, (_event, config: AppConfig): void => {
     try {
       saveConfig(config)

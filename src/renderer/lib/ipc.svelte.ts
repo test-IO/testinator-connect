@@ -18,8 +18,13 @@ export const toolCalls: ToolCallRecord[] = $state([])
 export const resources: ResourceInfo[] = $state([])
 export const resourceReads: ResourceReadRecord[] = $state([])
 export const deepLinkPrefill: { deploymentUrl: string | null } = $state({ deploymentUrl: null })
+export const appVersion: { value: string } = $state({ value: '' })
 
 export function initIpc(): void {
+  window.electronAPI.getAppVersion().then((version) => {
+    appVersion.value = version
+  })
+
   window.electronAPI.onLogEntry((entry) => {
     logs.push(entry)
     if (logs.length > 2000) logs.splice(0, logs.length - 2000)
