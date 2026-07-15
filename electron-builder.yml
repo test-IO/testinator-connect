@@ -11,6 +11,11 @@ directories:
   buildResources: resources
   output: dist
 
+publish:
+  provider: github
+  owner: test-IO
+  repo: testinator-connect
+
 files:
   - '!**/.vscode/*'
   - '!src/*'
