@@ -8,7 +8,7 @@
   let displayName = $state('')
   let timeout = $state(120)
   let sslVerify = $state(false)
-  let savedAuthToken = ''
+  let savedAuthToken = $state('')
 
   let saving = $state(false)
   let saved = $state(false)
@@ -261,6 +261,11 @@
       <div class="field">
         <label for="deployment_url">Deployment URL <span class="req">*</span></label>
         <input id="deployment_url" type="text" bind:value={deploymentUrl} placeholder="http://localhost:8000" />
+      </div>
+      <div class="field">
+        <label for="auth_token">Auth Token <span class="req">*</span></label>
+        <input id="auth_token" type="text" bind:value={savedAuthToken} placeholder="Paste the token from workflow" autocomplete="off" spellcheck="false" />
+        <span class="field-desc">Generate this in workflow under Settings → Agentic QA Connect for this machine, then paste it here. Required to connect.</span>
       </div>
       <div class="field">
         <label for="display_name">Display Name</label>

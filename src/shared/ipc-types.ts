@@ -8,6 +8,7 @@ export const IPC_TO_MAIN = {
   PLAYWRIGHT_INSTALL: 'playwright:install',
   PLAYWRIGHT_CHECK: 'playwright:check',
   CONFIG_OPEN_FILE: 'config:open-file',
+  GET_INSTALLATION_ID: 'installation:get',
 } as const
 
 export const IPC_TO_RENDERER = {

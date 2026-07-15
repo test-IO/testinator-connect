@@ -7,7 +7,7 @@ function getWindowIcon(): string | undefined {
   return undefined
 }
 import { execSync } from 'child_process'
-import { loadConfig, saveConfig, getConfigPath } from './config'
+import { loadConfig, saveConfig, getConfigPath, getInstallationId } from './config'
 import { Logger } from './service/logger'
 import { ConnectService } from './service/connect-service'
 import { sessionManager } from './service/session-manager'
@@ -98,6 +98,12 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_TO_MAIN.CONFIG_LOAD, (): AppConfig | null => {
     return loadConfig()
+  })
+
+  // Exposed so the UI can show the machine's Client ID before it ever connects
+  // — you need it to generate a handshake token in workflow.
+  ipcMain.handle(IPC_TO_MAIN.GET_INSTALLATION_ID, (): string => {
+    return getInstallationId()
   })
 
   ipcMain.handle(IPC_TO_MAIN.CONFIG_SAVE, (_event, config: AppConfig): void => {
