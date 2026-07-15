@@ -53,7 +53,9 @@ jobs:
         run: |
           npx electron-builder --mac \
             --publish always \
-            --config.extraMetadata.version=${{ steps.version.outputs.version }}
+            --config.extraMetadata.version=${{ steps.version.outputs.version }} \
+            --config.publish.releaseType=release \
+            --config.publish.vPrefixedTagName=false
 
   release-windows:
     name: Release Windows
@@ -96,7 +98,9 @@ jobs:
         run: |
           npx electron-builder --win `
             --publish always `
-            --config.extraMetadata.version=${{ steps.version.outputs.version }}
+            --config.extraMetadata.version=${{ steps.version.outputs.version }} `
+            --config.publish.releaseType=release `
+            --config.publish.vPrefixedTagName=false
         shell: pwsh
 
   cleanup-old-releases:
