@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { initIpc, deepLinkPrefill } from './lib/ipc.svelte'
+  import { initIpc, deepLinkPrefill, appVersion } from './lib/ipc.svelte'
   import ConfigPage from './pages/ConfigPage.svelte'
   import DashboardPage from './pages/DashboardPage.svelte'
   import McpServersPage from './pages/McpServersPage.svelte'
@@ -57,6 +57,8 @@
         <span class="nav-icon">⚙</span>
         Config
       </button>
+
+      <span class="version-tag">{appVersion.value}</span>
     </nav>
 
     <main class="content">
@@ -124,6 +126,16 @@
   .nav-item:hover { background: #1a1a28; color: #d1d5db; }
   .nav-item.active { background: #1e2a45; color: #60a5fa; font-weight: 600; }
   .nav-icon { font-size: 14px; opacity: 0.8; }
+
+  .version-tag {
+    margin-top: auto;
+    padding: 4px 10px 0;
+    font-size: 10px;
+    color: #374151;
+    font-family: monospace;
+    -webkit-app-region: no-drag;
+    user-select: text;
+  }
 
   .content { flex: 1; overflow: hidden; }
 </style>

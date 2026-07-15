@@ -28,6 +28,7 @@ declare global {
       onResourcesUpdated: (cb: (resources: ResourceInfo[]) => void) => void
       onResourceReadUpdated: (cb: (record: ResourceReadRecord) => void) => void
       resetSession: () => Promise<void>
+      getAppVersion: () => Promise<string>
       openConfigFile: () => Promise<void>
       checkPlaywrightBrowser: (browser: string) => Promise<boolean>
       installPlaywrightBrowser: (browser: string, sudoPassword?: string) => Promise<void>
