@@ -392,22 +392,3 @@ The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform bin
 | `electron-builder` | ^25 | Packaging (DMG + NSIS) |
 
 ---
-
-## Relationship to `testinator-connect`
-
-This Electron app is a **TypeScript port** of the Python `testinator-connect` package (located at `../testinator-connect/`). The core logic maps as follows:
-
-| Python module | TypeScript equivalent |
-|---|---|
-| `sio.py` | `src/main/service/socketio-client.ts` |
-| `session_manager.py` | `src/main/service/session-manager.ts` |
-| `config.py` | `src/main/config.ts` |
-| `utils.py` | `src/main/config.ts` (inline `sanitizeServerName`) |
-| `console.py` | `src/main/service/logger.ts` |
-| `tui.py` | `src/renderer/` (Svelte components) |
-
-When the Python source changes, the corresponding TypeScript file(s) need to be updated to stay in sync. The key behavioral invariants to preserve are:
-
-- **Sessions survive disconnect** — `sessionManager.cleanupAll()` is NOT called on Socket.IO disconnect; sessions are preserved for reconnection and only cleaned up on explicit `mcp_session_end` or app quit.
-- **`mcp_connect` uses ack** — the connect event uses `socket.timeout(30000).emitWithAck('mcp_connect', payload)` with a plain `emit` fallback, matching the Python `sio.call()` behavior.
-- **Client ID** — a stable 16-char hex ID is generated from `sha256(auth_token || deployment_url)` and sent as both an `X-Client-ID` header and a `client_id` field in the `mcp_connect` payload.
