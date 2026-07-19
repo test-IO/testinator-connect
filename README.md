@@ -379,6 +379,30 @@ The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform bin
 
 ---
 
+## FAQ
+
+### macOS says "Apple could not verify this app is free of malware" — how do I open it?
+
+Release builds of this app are currently **not code-signed or notarized** (see [Code signing setup](#code-signing-setup)), so macOS Gatekeeper blocks it by default when downloaded from the internet. This does not mean the app is unsafe — it just hasn't gone through Apple's paid notarization process. To open it anyway:
+
+**Option A — Right-click to open (recommended, GUI only)**
+
+1. In Finder, right-click (or Control-click) `Agentic QA - connect.app`
+2. Choose **Open** from the context menu
+3. Click **Open** again in the dialog that appears
+
+This bypasses Gatekeeper for that specific app without disabling any system-wide protection. On recent macOS versions, the first right-click → Open may just dismiss the original warning — repeat right-click → Open once more to get a dialog with a real **Open** button.
+
+**Option B — Terminal (clears the quarantine attribute)**
+
+```bash
+xattr -cr "/Applications/Agentic QA - connect.app"
+```
+
+Run this after moving the app to `/Applications`, then launch normally.
+
+---
+
 ## Key dependencies
 
 | Package | Version | Purpose |
@@ -392,22 +416,3 @@ The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform bin
 | `electron-builder` | ^25 | Packaging (DMG + NSIS) |
 
 ---
-
-## Relationship to `testinator-connect`
-
-This Electron app is a **TypeScript port** of the Python `testinator-connect` package (located at `../testinator-connect/`). The core logic maps as follows:
-
-| Python module | TypeScript equivalent |
-|---|---|
-| `sio.py` | `src/main/service/socketio-client.ts` |
-| `session_manager.py` | `src/main/service/session-manager.ts` |
-| `config.py` | `src/main/config.ts` |
-| `utils.py` | `src/main/config.ts` (inline `sanitizeServerName`) |
-| `console.py` | `src/main/service/logger.ts` |
-| `tui.py` | `src/renderer/` (Svelte components) |
-
-When the Python source changes, the corresponding TypeScript file(s) need to be updated to stay in sync. The key behavioral invariants to preserve are:
-
-- **Sessions survive disconnect** — `sessionManager.cleanupAll()` is NOT called on Socket.IO disconnect; sessions are preserved for reconnection and only cleaned up on explicit `mcp_session_end` or app quit.
-- **`mcp_connect` uses ack** — the connect event uses `socket.timeout(30000).emitWithAck('mcp_connect', payload)` with a plain `emit` fallback, matching the Python `sio.call()` behavior.
-- **Client ID** — a stable 16-char hex ID is generated from `sha256(auth_token || deployment_url)` and sent as both an `X-Client-ID` header and a `client_id` field in the `mcp_connect` payload.

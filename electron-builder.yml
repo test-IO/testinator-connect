@@ -11,6 +11,11 @@ directories:
   buildResources: resources
   output: dist
 
+publish:
+  provider: github
+  owner: test-IO
+  repo: testinator-connect
+
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -26,6 +31,7 @@ asarUnpack:
   - node_modules/playwright-core/**
   - node_modules/@playwright/mcp/node_modules/playwright/**
   - node_modules/@playwright/mcp/node_modules/playwright-core/**
+  - node_modules/npm/**
 
 extraResources:
   - from: resources/

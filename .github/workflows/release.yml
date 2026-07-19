@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release-macos:
+    name: Release macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download uv binaries
+        run: |
+          curl -sL "https://github.com/astral-sh/uv/releases/latest/download/uv-aarch64-apple-darwin.tar.gz" \
+            | tar xz -C /tmp uv-aarch64-apple-darwin/uv
+          mv /tmp/uv-aarch64-apple-darwin/uv resources/uv-macos-arm64
+
+          curl -sL "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-apple-darwin.tar.gz" \
+            | tar xz -C /tmp uv-x86_64-apple-darwin/uv
+          mv /tmp/uv-x86_64-apple-darwin/uv resources/uv-macos-x64
+
+          chmod +x resources/uv-macos-arm64 resources/uv-macos-x64
+
+      - name: Compute version from package.json + short SHA
+        id: version
+        run: |
+          pkg_version=$(node -p "require('./package.json').version")
+          echo "version=${pkg_version}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: npm run build
+
+      - name: Package and publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CSC_LINK: ${{ secrets.mac_certs }}
+          # CSC_KEY_PASSWORD: ${{ secrets.mac_certs_password }}
+          # APPLE_ID: ${{ secrets.apple_id }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.apple_app_specific_password }}
+          # APPLE_TEAM_ID: ${{ secrets.apple_team_id }}
+        run: |
+          npx electron-builder --mac \
+            --publish always \
+            --config.extraMetadata.version=${{ steps.version.outputs.version }} \
+            --config.publish.releaseType=release \
+            --config.publish.vPrefixedTagName=false
+
+  release-windows:
+    name: Release Windows
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: Download uv binary
+        shell: pwsh
+        run: |
+          $tmp = "$env:TEMP\uv-win.zip"
+          Invoke-WebRequest "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip" -OutFile $tmp
+          Expand-Archive -Path $tmp -DestinationPath "$env:TEMP\uv-win" -Force
+          Move-Item "$env:TEMP\uv-win\uv.exe" "resources\uv-windows-x64.exe" -Force
+
+      - name: Compute version from package.json + short SHA
+        id: version
+        shell: pwsh
+        run: |
+          $pkgVersion = node -p "require('./package.json').version"
+          $sha = git rev-parse --short HEAD
+          echo "version=$pkgVersion-$sha" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: npm run build
+
+      - name: Package and publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CSC_LINK: ${{ secrets.windows_certs }}
+          # CSC_KEY_PASSWORD: ${{ secrets.windows_certs_password }}
+        run: |
+          npx electron-builder --win `
+            --publish always `
+            --config.extraMetadata.version=${{ steps.version.outputs.version }} `
+            --config.publish.releaseType=release `
+            --config.publish.vPrefixedTagName=false
+        shell: pwsh
+
+  cleanup-old-releases:
+    name: Remove older dev releases
+    needs: [release-macos, release-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete all but the newest <version>-<sha> release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t tags < <(gh release list --repo test-IO/testinator-connect --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | test("-[0-9a-f]{7,40}$"))] | sort_by(.createdAt) | reverse | .[].tagName')
+          for tag in "${tags[@]:1}"; do
+            echo "Deleting old release $tag"
+            gh release delete "$tag" --repo test-IO/testinator-connect --yes --cleanup-tag
+          done

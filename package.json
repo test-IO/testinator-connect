@@ -1,6 +1,6 @@
 {
   "name": "agentic-qa-connect",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Agentic QA - connect: desktop UI for configuring and monitoring Agentic QA connect",
   "main": "./out/main/index.js",
   "scripts": {
@@ -8,13 +8,14 @@
     "build": "electron-vite build",
     "preview": "ELECTRON_RUN_AS_NODE= electron-vite preview",
     "pack": "npm run build && electron-builder --publish never",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && electron-builder --publish never --mac",
     "dist:mac:signed": "dotenv -e .env.local -- npm run dist:mac",
-    "dist:win": "npm run build && electron-builder --win"
+    "dist:win": "npm run build && electron-builder --publish never --win"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/mcp": "^0.0.76",
+    "npm": "^10.9.8",
     "socket.io-client": "^4.7.0"
   },
   "devDependencies": {

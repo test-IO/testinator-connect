@@ -1,28 +1,16 @@
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
-import { spawn, execSync } from 'child_process'
+import { spawn } from 'child_process'
 
-function findNode(): string {
-  // Use a login shell so version managers (nvm, volta, fnm) and Homebrew paths are sourced
-  const shells = ['/bin/zsh', '/bin/bash']
-  for (const shell of shells) {
-    try {
-      const result = execSync(`${shell} -lc "which node"`, { encoding: 'utf8' }).trim()
-      if (result) return result
-    } catch {
-      // try next shell
-    }
-  }
-  // Fall back to common install locations
-  const commonPaths = ['/opt/homebrew/bin/node', '/usr/local/bin/node']
-  for (const p of commonPaths) {
-    if (fs.existsSync(p)) return p
-  }
-  return 'node'
+// Run Electron's own binary as plain Node (via ELECTRON_RUN_AS_NODE) instead of
+// relying on a system-installed `node` on PATH, which packaged end-user installs
+// often don't have.
+export function findNode(): string {
+  return process.execPath
 }
 
-function getNodeModulesRoot(): string {
+export function getNodeModulesRoot(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules')
   }
@@ -59,6 +47,7 @@ export function resolvePlaywrightMcpCommand(args: string[]): {
     args: [cliPath, ...args.slice(1)],
     env: {
       PLAYWRIGHT_BROWSERS_PATH: getPlaywrightBrowsersPath(),
+      ELECTRON_RUN_AS_NODE: '1',
     },
   }
 }
@@ -89,9 +78,10 @@ export function installBrowser(
     let stdinData: string | undefined
 
     if (needsElevation && sudoPassword && process.platform !== 'win32') {
-      // pipe password to sudo -S so the install can acquire root when needed
+      // pipe password to sudo -S so the install can acquire root when needed;
+      // -E preserves ELECTRON_RUN_AS_NODE/PLAYWRIGHT_BROWSERS_PATH for the elevated process
       command = 'sudo'
-      args = ['-S', node, cliPath, 'install', '--force', browser]
+      args = ['-S', '-E', node, cliPath, 'install', '--force', browser]
       stdinData = sudoPassword + '\n'
     } else {
       command = node
@@ -102,6 +92,7 @@ export function installBrowser(
       env: {
         ...process.env,
         PLAYWRIGHT_BROWSERS_PATH: getPlaywrightBrowsersPath(),
+        ELECTRON_RUN_AS_NODE: '1',
       },
     })
     if (stdinData) {
