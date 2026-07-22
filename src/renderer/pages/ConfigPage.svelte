@@ -20,6 +20,7 @@
   // ── playwright config state ──────────────────────────────────────────────────
   let pwBrowser = $state('chromium')
   let pwCaps = $state<string[]>(['vision'])
+  let pwGrantPermissions = $state<string[]>([])
   let pwHeadless = $state(false)
   let pwDevice = $state('')
   let pwViewport = $state('1280x720')
@@ -117,6 +118,7 @@
       const a = args[i]
       if (a === '--browser' && args[i + 1])       { pwBrowser = args[++i]; continue }
       if (a === '--caps' && args[i + 1])           { pwCaps = args[++i].split(','); continue }
+      if (a === '--grant-permissions' && args[i + 1]) { pwGrantPermissions = args[++i].split(','); continue }
       if (a === '--headless')                      { pwHeadless = true; continue }
       if (a === '--device' && args[i + 1])         { pwDevice = args[++i]; continue }
       if (a === '--viewport-size' && args[i + 1])  { pwViewport = args[++i]; continue }
@@ -128,6 +130,7 @@
     const args = ['@playwright/mcp@latest']
     if (pwBrowser !== 'chromium')           args.push('--browser', pwBrowser)
     if (pwCaps.length > 0)                  args.push('--caps', pwCaps.join(','))
+    if (pwGrantPermissions.length > 0)      args.push('--grant-permissions', pwGrantPermissions.join(','))
     if (pwHeadless)                         args.push('--headless')
     if (pwDevice)                           args.push('--device', pwDevice)
     else if (pwViewport !== '1280x720')     args.push('--viewport-size', pwViewport)
@@ -228,6 +231,11 @@
   function toggleCap(cap: string) {
     if (pwCaps.includes(cap)) pwCaps = pwCaps.filter(c => c !== cap)
     else pwCaps = [...pwCaps, cap]
+  }
+
+  function toggleGrantPermission(permission: string) {
+    if (pwGrantPermissions.includes(permission)) pwGrantPermissions = pwGrantPermissions.filter(p => p !== permission)
+    else pwGrantPermissions = [...pwGrantPermissions, permission]
   }
 </script>
 
@@ -345,6 +353,28 @@
           <b>storage</b> — cookies, localStorage, sessionStorage ·
           <b>devtools</b> — tracing &amp; DevTools ·
           <b>testing</b> — test assertions
+        </span>
+      </div>
+
+      <!-- Grant Permissions -->
+      <div class="field">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label>Grant Permissions <span class="hint">--grant-permissions</span></label>
+        <div class="caps-row">
+          {#each ['local-network-access', 'geolocation', 'clipboard-read', 'clipboard-write', 'camera', 'microphone', 'notifications', 'midi'] as permission}
+            <button
+              class="cap-chip"
+              class:active={pwGrantPermissions.includes(permission)}
+              onclick={() => toggleGrantPermission(permission)}
+            >{permission}</button>
+          {/each}
+        </div>
+        <span class="field-desc">
+          Pre-approves these permissions on the browser context at startup, so the site never
+          shows its own prompt. <b>local-network-access</b> — pre-approves the "wants to access
+          other apps and services on this device" prompt Chrome shows a page before it can fetch
+          a localhost/private-network URL; without it, requests to a local dev server from a
+          public site are silently blocked with no one available to click Allow.
         </span>
       </div>
 
