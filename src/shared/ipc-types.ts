@@ -28,6 +28,11 @@ export const IPC_TO_RENDERER = {
 
 export interface DeepLinkConfigPayload {
   deploymentUrl: string
+  // Present only for quick connect: the app trades the single-use code for its
+  // own handshake token instead of the user copying one over by hand.
+  exchangeUrl?: string
+  code?: string
+  authToken?: string
 }
 
 export type LogLevel =

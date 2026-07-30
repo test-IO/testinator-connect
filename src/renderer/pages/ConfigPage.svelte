@@ -165,6 +165,12 @@
     if (deepLinkPrefill.deploymentUrl !== null && configLoaded) {
       deploymentUrl = deepLinkPrefill.deploymentUrl
       deepLinkPrefill.deploymentUrl = null
+      // Quick connect already confirmed and stored these — mirror them into the
+      // form so the page shows what the machine is actually configured with.
+      if (deepLinkPrefill.authToken !== null) {
+        savedAuthToken = deepLinkPrefill.authToken
+        deepLinkPrefill.authToken = null
+      }
       deepLinkApplied = true
       setTimeout(() => { deepLinkApplied = false }, 8000)
     }
