@@ -52,7 +52,34 @@ export function resolvePlaywrightMcpCommand(args: string[]): {
   }
 }
 
+const ELEVATED_BROWSERS = new Set(['chrome', 'msedge'])
+
+// chrome/msedge are "channel" installs that use the system browser, 
+// so detect them by known install path instead of the PLAYWRIGHT_BROWSERS_PATH scan below.
+function getSystemBrowserCandidates(browser: string): string[] {
+  const home = app.getPath('home')
+  if (process.platform === 'darwin') {
+    return browser === 'chrome'
+      ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+      : ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge']
+  }
+  if (process.platform === 'linux') {
+    return browser === 'chrome'
+      ? ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/opt/google/chrome/google-chrome']
+      : ['/usr/bin/microsoft-edge', '/usr/bin/microsoft-edge-stable', '/opt/microsoft/msedge/msedge']
+  }
+  // win32
+  const roots = [process.env['PROGRAMFILES'], process.env['PROGRAMFILES(X86)'], path.join(home, 'AppData', 'Local')]
+    .filter((p): p is string => !!p)
+  return browser === 'chrome'
+    ? roots.map((r) => path.join(r, 'Google', 'Chrome', 'Application', 'chrome.exe'))
+    : roots.map((r) => path.join(r, 'Microsoft', 'Edge', 'Application', 'msedge.exe'))
+}
+
 export function isBrowserInstalled(browser: string): boolean {
+  if (ELEVATED_BROWSERS.has(browser)) {
+    return getSystemBrowserCandidates(browser).some((p) => fs.existsSync(p))
+  }
   const browsersPath = getPlaywrightBrowsersPath()
   try {
     return fs.readdirSync(browsersPath).some((d) => d.startsWith(browser))
@@ -60,8 +87,6 @@ export function isBrowserInstalled(browser: string): boolean {
     return false
   }
 }
-
-const ELEVATED_BROWSERS = new Set(['chrome', 'msedge'])
 
 export function installBrowser(
   browser: string,
@@ -78,10 +103,15 @@ export function installBrowser(
     let stdinData: string | undefined
 
     if (needsElevation && sudoPassword && process.platform !== 'win32') {
-      // pipe password to sudo -S so the install can acquire root when needed;
-      // -E preserves ELECTRON_RUN_AS_NODE/PLAYWRIGHT_BROWSERS_PATH for the elevated process
+      // sudo -S pipes the password; -E preserves ELECTRON_RUN_AS_NODE/PLAYWRIGHT_BROWSERS_PATH.
+      // Also chown browsersPath back afterward, since root can leave shared deps (e.g. ffmpeg)
+      // root-owned and block later non-elevated installs — done in the same sudo session so the
+      // password is only prompted once, and after the install regardless of its exit code.
+      const shQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`
+      const installCmd = [node, cliPath, 'install', '--force', browser].map(shQuote).join(' ')
+      const chownCmd = `chown -R ${process.getuid!()}:${process.getgid!()} ${shQuote(getPlaywrightBrowsersPath())}`
       command = 'sudo'
-      args = ['-S', '-E', node, cliPath, 'install', '--force', browser]
+      args = ['-S', '-E', 'sh', '-c', `${installCmd}; ec=$?; ${chownCmd}; exit $ec`]
       stdinData = sudoPassword + '\n'
     } else {
       command = node
