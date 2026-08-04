@@ -2,10 +2,10 @@ import type { DeepLinkConfigPayload } from '../shared/ipc-types'
 
 export const DEEP_LINK_PROTOCOL = 'agentic-qa-connect'
 
-// Only extracts deployment_url — no other query param is read, so the deep
-// link can't be used to set auth_token/servers/etc. The extracted value must
-// itself be an http(s) URL, blocking javascript:/file:/data: from ending up
-// as the socket.io connection target.
+// Reads deployment_url plus the optional quick-connect pair (exchange_url +
+// code) — never a token or server config, so the link itself can't hand the app
+// a credential or an MCP server. Both URLs must be http(s), which blocks
+// javascript:/file:/data: from becoming a connection or request target.
 export function parseDeepLink(rawUrl: string): DeepLinkConfigPayload | null {
   let parsed: URL
   try {
@@ -20,6 +20,18 @@ export function parseDeepLink(rawUrl: string): DeepLinkConfigPayload | null {
   const raw = parsed.searchParams.get('deployment_url')
   if (!raw) return null
 
+  const deploymentUrl = httpUrl(raw)
+  if (!deploymentUrl) return null
+
+  const exchangeUrl = httpUrl(parsed.searchParams.get('exchange_url'))
+  const code = parsed.searchParams.get('code')
+  if (!exchangeUrl || !code) return { deploymentUrl }
+
+  return { deploymentUrl, exchangeUrl, code }
+}
+
+function httpUrl(raw: string | null): string | null {
+  if (!raw) return null
   let candidate: URL
   try {
     candidate = new URL(raw)
@@ -27,8 +39,7 @@ export function parseDeepLink(rawUrl: string): DeepLinkConfigPayload | null {
     return null
   }
   if (candidate.protocol !== 'http:' && candidate.protocol !== 'https:') return null
-
-  return { deploymentUrl: candidate.toString() }
+  return candidate.toString()
 }
 
 export function extractDeepLinkUrl(argv: string[]): string | null {

@@ -17,10 +17,17 @@ export const tools: ToolInfo[] = $state([])
 export const toolCalls: ToolCallRecord[] = $state([])
 export const resources: ResourceInfo[] = $state([])
 export const resourceReads: ResourceReadRecord[] = $state([])
-export const deepLinkPrefill: { deploymentUrl: string | null } = $state({ deploymentUrl: null })
+export const deepLinkPrefill: { deploymentUrl: string | null; authToken: string | null } =
+  $state({ deploymentUrl: null, authToken: null })
 export const appVersion: { value: string } = $state({ value: '' })
 
 export function initIpc(): void {
+  // Surface the Client ID immediately so it's visible before the first
+  // connection — you need it to generate a handshake token in workflow.
+  void window.electronAPI.getInstallationId().then((id) => {
+    if (id) status.installationId = id
+  })
+
   window.electronAPI.getAppVersion().then((version) => {
     appVersion.value = version
   })
@@ -89,6 +96,7 @@ export function initIpc(): void {
 
   window.electronAPI.onDeepLinkConfig((payload) => {
     deepLinkPrefill.deploymentUrl = payload.deploymentUrl
+    if (payload.authToken) deepLinkPrefill.authToken = payload.authToken
   })
 }
 

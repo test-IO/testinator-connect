@@ -70,7 +70,6 @@ export class SocketIOService {
     this.socket = io(deployment_url, {
       extraHeaders: {
         Authorization: `Bearer ${auth_token ?? ''}`,
-        'X-Installation-ID': this.clientId,
       },
       rejectUnauthorized,
       reconnection: true,
@@ -88,7 +87,6 @@ socket.on('connect', async () => {
         toolkit_configs: buildToolkitConfigs(this.allTools, this.allResources),
         timeout_tools_list: 90,
         timeout_tools_call: 90,
-        installation_id: clientId,
         display_name: this.config.display_name || hostname(),
         active_sessions: activeSessions,
       }

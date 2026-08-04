@@ -14,6 +14,7 @@ declare global {
   interface Window {
     electronAPI: {
       loadConfig: () => Promise<AppConfig | null>
+      getInstallationId: () => Promise<string>
       saveConfig: (config: AppConfig) => Promise<void>
       startService: () => Promise<void>
       stopService: () => Promise<void>

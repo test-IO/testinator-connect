@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
 import { join } from 'path'
+import { hostname } from 'os'
 
 function getWindowIcon(): string | undefined {
   if (process.platform === 'win32') return join(app.getAppPath(), 'images/windows/icon.ico')
@@ -7,7 +8,7 @@ function getWindowIcon(): string | undefined {
   return undefined
 }
 import { execSync } from 'child_process'
-import { loadConfig, saveConfig, getConfigPath } from './config'
+import { loadConfig, saveConfig, getConfigPath, getInstallationId } from './config'
 import { Logger } from './service/logger'
 import { ConnectService } from './service/connect-service'
 import { sessionManager } from './service/session-manager'
@@ -37,8 +38,23 @@ if (process.platform !== 'win32') {
 let mainWindow: BrowserWindow | null = null
 let pendingDeepLink: DeepLinkConfigPayload | null = null
 
+// Module scope so deep-link handling can reach them too, not just the IPC layer.
+const logger = new Logger(() => mainWindow)
+const service = new ConnectService(logger)
+
+// Nothing awaits this — the OS handlers below are synchronous — so failures are
+// logged here rather than surfacing as an unhandled rejection.
 function handleDeepLink(rawUrl: string): void {
-  const payload = parseDeepLink(rawUrl)
+  applyDeepLink(rawUrl).catch((e) => {
+    logger.error(`Deep link failed: ${e instanceof Error ? e.message : String(e)}`)
+  })
+}
+
+async function applyDeepLink(rawUrl: string): Promise<void> {
+  const parsed = parseDeepLink(rawUrl)
+  if (!parsed) return
+
+  const payload = parsed.code ? await quickConnect(parsed) : parsed
   if (!payload) return
 
   if (mainWindow && !mainWindow.webContents.isLoading()) {
@@ -48,6 +64,79 @@ function handleDeepLink(rawUrl: string): void {
   } else {
     pendingDeepLink = payload
   }
+}
+
+// A deep link can be triggered by any web page, so nothing is applied until the
+// person at the machine confirms it — otherwise a random site could quietly
+// re-point this machine at its own installation.
+async function quickConnect(payload: DeepLinkConfigPayload): Promise<DeepLinkConfigPayload | null> {
+  const current = loadConfig()
+  const target = new URL(payload.exchangeUrl!).host
+  const urlChange =
+    current?.deployment_url && current.deployment_url !== payload.deploymentUrl
+      ? `\n\nDeployment URL: ${payload.deploymentUrl}\n(currently ${current.deployment_url})`
+      : `\n\nDeployment URL: ${payload.deploymentUrl}`
+
+  mainWindow?.show()
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Cancel', 'Connect'],
+    defaultId: 1,
+    cancelId: 0,
+    message: `Connect this machine to ${target}?`,
+    detail: `Any previous connection of this machine will be replaced.${urlChange}`,
+  })
+  if (response !== 1) return null
+
+  try {
+    const token = await redeemCode(payload)
+    const config: AppConfig = {
+      ...(loadConfig() ?? { deployment_url: '', servers: {} }),
+      deployment_url: payload.deploymentUrl,
+      auth_token: token,
+    }
+    saveConfig(config)
+    if (service.isRunning()) {
+      await service.stop()
+      await service.start(config)
+    }
+    logger.info(`Configured by ${target} — machine is ready to connect.`)
+    return { deploymentUrl: payload.deploymentUrl, authToken: token }
+  } catch (e) {
+    // Leave the existing configuration alone: a failed exchange must never cost
+    // the user a working setup.
+    const reason = e instanceof Error ? e.message : String(e)
+    logger.error(`Quick connect failed: ${reason}`)
+    dialog.showErrorBox('Could not connect', `${reason}\n\nThe existing configuration was left unchanged.`)
+    return null
+  }
+}
+
+async function redeemCode(payload: DeepLinkConfigPayload): Promise<string> {
+  const response = await fetch(payload.exchangeUrl!, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code: payload.code,
+      connect_app_id: getInstallationId(),
+      display_name: hostname(),
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      response.status === 422
+        ? 'The link has expired — click "Connect app" again.'
+        : `The deployment answered ${response.status}.`,
+    )
+  }
+
+  const body = (await response.json()) as { token?: string; deployment_url?: string }
+  if (!body.token) throw new Error('The deployment did not return a token.')
+  if (body.deployment_url && body.deployment_url !== payload.deploymentUrl) {
+    logger.info(`Deployment reports a different gateway URL (${body.deployment_url}); keeping the confirmed one.`)
+  }
+  return body.token
 }
 
 function createWindow(): void {
@@ -93,11 +182,14 @@ function createWindow(): void {
 }
 
 function registerIpcHandlers(): void {
-  const logger = new Logger(() => mainWindow)
-  const service = new ConnectService(logger)
-
   ipcMain.handle(IPC_TO_MAIN.CONFIG_LOAD, (): AppConfig | null => {
     return loadConfig()
+  })
+
+  // Exposed so the UI can show the machine's Client ID before it ever connects
+  // — you need it to generate a handshake token in workflow.
+  ipcMain.handle(IPC_TO_MAIN.GET_INSTALLATION_ID, (): string => {
+    return getInstallationId()
   })
 
   ipcMain.handle(IPC_TO_MAIN.APP_GET_VERSION, (): string => {

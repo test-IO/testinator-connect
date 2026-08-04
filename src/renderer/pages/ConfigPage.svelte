@@ -8,7 +8,7 @@
   let displayName = $state('')
   let timeout = $state(120)
   let sslVerify = $state(false)
-  let savedAuthToken = ''
+  let savedAuthToken = $state('')
 
   let saving = $state(false)
   let saved = $state(false)
@@ -168,6 +168,12 @@
     if (deepLinkPrefill.deploymentUrl !== null && configLoaded) {
       deploymentUrl = deepLinkPrefill.deploymentUrl
       deepLinkPrefill.deploymentUrl = null
+      // Quick connect already confirmed and stored these — mirror them into the
+      // form so the page shows what the machine is actually configured with.
+      if (deepLinkPrefill.authToken !== null) {
+        savedAuthToken = deepLinkPrefill.authToken
+        deepLinkPrefill.authToken = null
+      }
       deepLinkApplied = true
       setTimeout(() => { deepLinkApplied = false }, 8000)
     }
@@ -269,6 +275,11 @@
       <div class="field">
         <label for="deployment_url">Deployment URL <span class="req">*</span></label>
         <input id="deployment_url" type="text" bind:value={deploymentUrl} placeholder="http://localhost:8000" />
+      </div>
+      <div class="field">
+        <label for="auth_token">Auth Token <span class="req">*</span></label>
+        <input id="auth_token" type="text" bind:value={savedAuthToken} placeholder="Paste the token from workflow" autocomplete="off" spellcheck="false" />
+        <span class="field-desc">Generate this in workflow under Settings → Agentic QA Connect for this machine, then paste it here. Required to connect.</span>
       </div>
       <div class="field">
         <label for="display_name">Display Name</label>

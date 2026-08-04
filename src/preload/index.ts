@@ -15,6 +15,7 @@ import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer → Main
   loadConfig: (): Promise<AppConfig | null> => ipcRenderer.invoke(IPC_TO_MAIN.CONFIG_LOAD),
+  getInstallationId: (): Promise<string> => ipcRenderer.invoke(IPC_TO_MAIN.GET_INSTALLATION_ID),
   saveConfig: (config: AppConfig): Promise<void> =>
     ipcRenderer.invoke(IPC_TO_MAIN.CONFIG_SAVE, config),
   startService: (): Promise<void> => ipcRenderer.invoke(IPC_TO_MAIN.SERVICE_START),
