@@ -222,7 +222,7 @@
         pwBrowser,
         ELEVATED_BROWSERS.has(pwBrowser) ? sudoPassword || undefined : undefined,
       )
-      browserInstalled = true
+      await checkBrowser()
     } catch (e) {
       installLog += `\nError: ${e instanceof Error ? e.message : String(e)}`
     } finally { installing = false }
@@ -317,9 +317,13 @@
             {browserInstalled ? '✓ Installed' : '✗ Not installed'}
           </span>
         {/if}
-        <button class="install-btn" onclick={installBrowser} disabled={installing}>
-          {installing ? 'Installing…' : 'Install'}
-        </button>
+        {#if browserInstalled && !installing}
+          <button class="reinstall-link" onclick={installBrowser}>Reinstall</button>
+        {:else}
+          <button class="install-btn" onclick={installBrowser} disabled={installing}>
+            {installing ? 'Installing…' : 'Install'}
+          </button>
+        {/if}
       </div>
       {#if ELEVATED_BROWSERS.has(pwBrowser)}
         <div class="field">
@@ -488,6 +492,11 @@
   }
   .install-btn:not(:disabled):hover { background: #2563eb; }
   .install-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .reinstall-link {
+    padding: 7px 4px; border: none; background: none; flex-shrink: 0;
+    font-size: 12px; color: #64748b; cursor: pointer; text-decoration: underline;
+  }
+  .reinstall-link:hover { color: #94a3b8; }
   .install-log {
     background: #0a0a12; border: 1px solid #1e1e2e; border-radius: 5px;
     padding: 10px; font-family: monospace; font-size: 11px; color: #94a3b8;
