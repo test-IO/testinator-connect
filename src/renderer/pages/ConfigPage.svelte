@@ -32,6 +32,7 @@
   let sudoPassword = $state('')
 
   const ELEVATED_BROWSERS = new Set(['chrome', 'msedge'])
+  const isWindows = navigator.userAgent.includes('Windows')
 
   let savedConfig: AppConfig | null = null
 
@@ -226,7 +227,7 @@
     try {
       await window.electronAPI.installPlaywrightBrowser(
         pwBrowser,
-        ELEVATED_BROWSERS.has(pwBrowser) ? sudoPassword || undefined : undefined,
+        ELEVATED_BROWSERS.has(pwBrowser) && !isWindows ? sudoPassword || undefined : undefined,
       )
       await checkBrowser()
     } catch (e) {
@@ -336,7 +337,7 @@
           </button>
         {/if}
       </div>
-      {#if ELEVATED_BROWSERS.has(pwBrowser)}
+      {#if ELEVATED_BROWSERS.has(pwBrowser) && !isWindows}
         <div class="field">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label>sudo Password <span class="hint">required to install system dependencies</span></label>
