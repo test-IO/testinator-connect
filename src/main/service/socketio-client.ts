@@ -12,6 +12,12 @@ import { sessionManager } from './session-manager'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
 
+// Giving up disconnects the machine until the user restarts the app, so this
+// has to outlast a gateway restart rather than a network blip. With the delay
+// capped at 5s the backoff settles there after a few tries, so 15 attempts buy
+// roughly a minute — enough for a rolling deploy to finish.
+const RECONNECTION_ATTEMPTS = 15
+
 function buildToolkitConfigs(
   allTools: ServerToolInfo[],
   allResources: ServerResourceInfo[],
@@ -73,7 +79,7 @@ export class SocketIOService {
       },
       rejectUnauthorized,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: RECONNECTION_ATTEMPTS,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     })
@@ -124,7 +130,7 @@ socket.on('connect', async () => {
     })
 
     socket.on('reconnect_failed', () => {
-      const msg = `Failed to connect to ${deployment_url} after ${this.socket?.io?.reconnectionAttempts?.() ?? 5} attempts`
+      const msg = `Failed to connect to ${deployment_url} after ${this.socket?.io?.reconnectionAttempts?.() ?? RECONNECTION_ATTEMPTS} attempts`
       this.logger.error(msg)
       this.logger.setConnectionError(msg)
       // Release dead socket to prevent listener leaks
