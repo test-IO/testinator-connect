@@ -204,6 +204,30 @@ Config is saved to the OS user-data directory:
 
 **`stateful: true`** — the server gets a dedicated subprocess per tooling session, providing complete browser isolation between parallel sessions.
 
+### Recommended macOS servers
+
+For desktop-app testing, `MacOS_MCP` first:
+
+```json
+"MacOS_MCP": {
+  "command": "uv",
+  "args": ["tool", "run", "macos-mcp", "serve", "--transport", "stdio"]
+}
+```
+
+`Peekaboo_MCP` as a second option:
+
+```json
+"Peekaboo_MCP": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "-p", "@steipete/peekaboo", "peekaboo-mcp"],
+  "stateful": true
+}
+```
+
+Both need Accessibility and Screen Recording permissions. Enable one at a time.
+
 ---
 
 ## CI/CD — Automated builds
