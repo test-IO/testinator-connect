@@ -16,7 +16,7 @@ function getUvPath(): string {
   return path.join(base, 'uv-windows-x64.exe')
 }
 
-const PYTHON_COMMANDS = new Set(['python', 'python3', 'uv'])
+const PYTHON_COMMANDS = new Set(['python', 'python3', 'uv', 'uvx'])
 
 export function resolveCommand(
   command: string,
@@ -42,6 +42,10 @@ export function resolveCommand(
 
   if (command === 'uv') {
     return { command: uvPath, args }
+  }
+
+  if (command === 'uvx') {
+    return { command: uvPath, args: ['tool', 'run', ...args] }
   }
 
   return { command: uvPath, args: ['run', command, ...args] }
