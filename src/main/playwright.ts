@@ -42,9 +42,12 @@ export function resolvePlaywrightMcpCommand(args: string[]): {
   env: Record<string, string>
 } {
   const cliPath = path.join(getNodeModulesRoot(), '@playwright', 'mcp', 'cli.js')
+  // Older or hand-edited configs may lack --isolated, so enforce it at spawn time.
+  const mcpArgs = args.slice(1)
+  if (!mcpArgs.includes('--isolated')) mcpArgs.push('--isolated')
   return {
     command: findNode(),
-    args: [cliPath, ...args.slice(1)],
+    args: [cliPath, ...mcpArgs],
     env: {
       PLAYWRIGHT_BROWSERS_PATH: getPlaywrightBrowsersPath(),
       ELECTRON_RUN_AS_NODE: '1',
