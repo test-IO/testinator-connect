@@ -12,10 +12,11 @@ import { sessionManager } from './session-manager'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
 
-// Giving up disconnects the machine until the user restarts the app, so this
-// has to outlast a gateway restart rather than a network blip. With the delay
-// capped at 5s the backoff settles there after a few tries, so 15 attempts buy
-// roughly a minute — enough for a rolling deploy to finish.
+// After the final attempt fails, the machine stays disconnected until the user
+// restarts the app. The limit therefore has to cover a Gateway restart, not
+// just a short network interruption. The delay is capped at 5 seconds, so the
+// backoff reaches that cap after a few attempts, and 15 attempts cover about a
+// minute, which is long enough for a rolling deployment to finish.
 const RECONNECTION_ATTEMPTS = 15
 
 function buildToolkitConfigs(
