@@ -26,7 +26,7 @@
   {#if showConnectConfirmation.active}
     <div class="connect-banner">
       <span class="connect-banner-text">
-        open Agentic QA → Settings → Agentic QA Connect
+        New configuration saved. Open Agentic QA → Settings → Agentic QA Connect
         to confirm this machine now appears online.
       </span>
       <button class="dismiss-btn" onclick={() => (showConnectConfirmation.active = false)}>✕</button>
