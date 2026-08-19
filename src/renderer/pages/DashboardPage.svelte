@@ -6,7 +6,7 @@
   import ToolsPanel from '../components/ToolsPanel.svelte'
   import ToolCallsPanel from '../components/ToolCallsPanel.svelte'
   import ResourcesPanel from '../components/ResourcesPanel.svelte'
-  import { resetSession } from '../lib/ipc.svelte'
+  import { resetSession, showConnectConfirmation } from '../lib/ipc.svelte'
 
   type View = 'activity' | 'tools' | 'resources' | 'calls'
   let activeView: View = $state('activity')
@@ -23,6 +23,15 @@
 </script>
 
 <div class="dashboard">
+  {#if showConnectConfirmation.active}
+    <div class="connect-banner">
+      <span class="connect-banner-text">
+        open Agentic QA → Settings → Agentic QA Connect
+        to confirm this machine now appears online.
+      </span>
+      <button class="dismiss-btn" onclick={() => (showConnectConfirmation.active = false)}>✕</button>
+    </div>
+  {/if}
   <StatusBar />
   <StatsBar />
   <div class="tab-bar">
@@ -64,6 +73,20 @@
 
 <style>
   .dashboard { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+  .connect-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; background: #1c2a1c; color: #86efac;
+    font-size: 13px; flex-shrink: 0; border-bottom: 1px solid #2d2d3d;
+  }
+  .connect-banner-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .connect-banner .dismiss-btn {
+    margin-left: auto; flex-shrink: 0; background: none; border: none; color: #86efac;
+    cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;
+  }
+  .connect-banner .dismiss-btn:hover { color: #fff; }
 
   .tab-bar {
     display: flex; align-items: center; justify-content: space-between;
