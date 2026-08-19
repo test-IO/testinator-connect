@@ -96,10 +96,8 @@ async function quickConnect(payload: DeepLinkConfigPayload): Promise<DeepLinkCon
       auth_token: token,
     }
     saveConfig(config)
-    if (service.isRunning()) {
-      await service.stop()
-      await service.start(config)
-    }
+    if (service.isRunning()) await service.stop()
+    await service.start(config)
     logger.info(`Configured by ${target} — machine is ready to connect.`)
     return { deploymentUrl: payload.deploymentUrl, authToken: token }
   } catch (e) {

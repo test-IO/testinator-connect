@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { initIpc, deepLinkPrefill, appVersion } from './lib/ipc.svelte'
+  import { initIpc, deepLinkPrefill, postConnectNavigate, appVersion } from './lib/ipc.svelte'
   import ConfigPage from './pages/ConfigPage.svelte'
   import DashboardPage from './pages/DashboardPage.svelte'
   import McpServersPage from './pages/McpServersPage.svelte'
@@ -17,6 +17,15 @@
   // the Config tab so the prefilled field/banner is immediately visible.
   $effect(() => {
     if (deepLinkPrefill.deploymentUrl !== null) activeTab = 'config'
+  })
+
+  // Once the deep link has driven a save + connect, jump to the Dashboard so
+  // the user sees the Connecting…/Connected status without hunting for it.
+  $effect(() => {
+    if (postConnectNavigate.requested) {
+      activeTab = 'dashboard'
+      postConnectNavigate.requested = false
+    }
   })
 </script>
 

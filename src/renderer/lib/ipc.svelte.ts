@@ -21,6 +21,13 @@ export const deepLinkPrefill: { deploymentUrl: string | null; authToken: string 
   $state({ deploymentUrl: null, authToken: null })
 export const appVersion: { value: string } = $state({ value: '' })
 
+// Set once a deep link has triggered (or confirmed) a connect, so the app
+// shell can jump to the Dashboard tab and show a one-time confirmation
+// banner pointing the user at Testinator Workflow's Agentic QA Connect
+// settings — that's how they confirm the install actually worked.
+export const postConnectNavigate: { requested: boolean } = $state({ requested: false })
+export const showConnectConfirmation: { active: boolean } = $state({ active: false })
+
 export function initIpc(): void {
   // Surface the Client ID immediately so it's visible before the first
   // connection — you need it to generate a handshake token in workflow.

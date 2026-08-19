@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { AppConfig } from '../../shared/ipc-types'
-  import { deepLinkPrefill } from '../lib/ipc.svelte'
+  import { deepLinkPrefill, postConnectNavigate, showConnectConfirmation, status, serviceError } from '../lib/ipc.svelte'
 
   // ── connection state ─────────────────────────────────────────────────────────
   let deploymentUrl = $state('')
@@ -160,25 +160,52 @@
     window.electronAPI.onPlaywrightInstallProgress((line) => { installLog += line })
   })
 
-  // Prefill (not auto-save) from a deep link — the user still reviews and
-  // clicks Save, so an already-connected instance is never silently
-  // redirected to a different deployment out from under them. Gated on
-  // configLoaded so a deep link that arrives while the initial loadConfig()
-  // is still in flight doesn't get clobbered once that load resolves.
+  // Prefill from a deep link and then apply it automatically — the user
+  // already confirmed the connect from the link (or, for quick connect, from
+  // the native dialog), so there's no reason to make them notice a banner and
+  // click Save/Start themselves. Gated on configLoaded so a deep link that
+  // arrives while the initial loadConfig() is still in flight doesn't get
+  // clobbered once that load resolves.
   $effect(() => {
     if (deepLinkPrefill.deploymentUrl !== null && configLoaded) {
       deploymentUrl = deepLinkPrefill.deploymentUrl
       deepLinkPrefill.deploymentUrl = null
-      // Quick connect already confirmed and stored these — mirror them into the
-      // form so the page shows what the machine is actually configured with.
-      if (deepLinkPrefill.authToken !== null) {
-        savedAuthToken = deepLinkPrefill.authToken
+      // Quick connect already redeemed the code and carries a token here —
+      // it has also already saved and (re)started the service on the main
+      // side, so the renderer only needs to mirror the value and navigate.
+      const isQuickConnect = deepLinkPrefill.authToken !== null
+      if (isQuickConnect) {
+        savedAuthToken = deepLinkPrefill.authToken!
         deepLinkPrefill.authToken = null
       }
       deepLinkApplied = true
       setTimeout(() => { deepLinkApplied = false }, 8000)
+
+      if (isQuickConnect) {
+        postConnectNavigate.requested = true
+        showConnectConfirmation.active = true
+      } else {
+        applyDeepLinkAndConnect()
+      }
     }
   })
+
+  // Plain `configure` deep link (no code/token): nothing has been saved or
+  // started yet, unlike quick connect which the main process already handled.
+  async function applyDeepLinkAndConnect(): Promise<void> {
+    await save()
+    if (saveError) return // leave the user here to see and fix the problem
+
+    try {
+      if (status.connected || status.connecting) await window.electronAPI.stopService()
+      await window.electronAPI.startService()
+    } catch (e) {
+      serviceError.message = e instanceof Error ? e.message : String(e)
+    }
+
+    postConnectNavigate.requested = true
+    showConnectConfirmation.active = true
+  }
 
   $effect(() => {
     void pwBrowser
@@ -258,7 +285,7 @@
   {#if saveError}<div class="banner error">{saveError}</div>{/if}
   {#if deepLinkApplied}
     <div class="banner notice">
-      Deployment URL prefilled from link. Review and click <strong>Save</strong> to apply.
+      Deployment URL applied from link — saving and connecting…
     </div>
   {/if}
   {#if restartNotice}
