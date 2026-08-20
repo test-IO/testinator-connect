@@ -12,6 +12,13 @@ import { sessionManager } from './session-manager'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
 
+// After the final attempt fails, the machine stays disconnected until the user
+// restarts the app. The limit therefore has to cover a Gateway restart, not
+// just a short network interruption. The delay is capped at 5 seconds, so the
+// backoff reaches that cap after a few attempts, and 15 attempts cover about a
+// minute, which is long enough for a rolling deployment to finish.
+const RECONNECTION_ATTEMPTS = 15
+
 function buildToolkitConfigs(
   allTools: ServerToolInfo[],
   allResources: ServerResourceInfo[],
@@ -73,7 +80,7 @@ export class SocketIOService {
       },
       rejectUnauthorized,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: RECONNECTION_ATTEMPTS,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     })
@@ -124,7 +131,7 @@ socket.on('connect', async () => {
     })
 
     socket.on('reconnect_failed', () => {
-      const msg = `Failed to connect to ${deployment_url} after ${this.socket?.io?.reconnectionAttempts?.() ?? 5} attempts`
+      const msg = `Failed to connect to ${deployment_url} after ${this.socket?.io?.reconnectionAttempts?.() ?? RECONNECTION_ATTEMPTS} attempts`
       this.logger.error(msg)
       this.logger.setConnectionError(msg)
       // Release dead socket to prevent listener leaks
