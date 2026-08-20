@@ -36,6 +36,33 @@ export function isPlaywrightMcpCommand(command: string, args: string[]): boolean
   return command === 'npx' && (args[0] ?? '').startsWith('@playwright/mcp')
 }
 
+// Chrome 149 backgrounds the tab after a link-click navigation, stopping the
+// frames page.screenshot() waits for (EPMTIOOPS-20076; mirrors tooling).
+const CHROMIUM_LAUNCH_ARGS = ['--disable-features=CalculateNativeWinOcclusion']
+
+// Passed via PLAYWRIGHT_MCP_CONFIG, not --config: the Config page rebuilds the
+// arg list from the flags it knows and would drop it. A user's own config is
+// merged in, since @playwright/mcp would otherwise let it replace ours.
+function writeMcpConfig(userConfigPath?: string): string {
+  let config: { browser?: { launchOptions?: { args?: string[] } } } = {}
+  if (userConfigPath) {
+    try {
+      config = JSON.parse(fs.readFileSync(userConfigPath, 'utf8'))
+    } catch {
+      // Malformed: our args alone beat a browser that hangs on every link click.
+    }
+  }
+  const browser = (config.browser ??= {})
+  const launchOptions = (browser.launchOptions ??= {})
+  const args = (launchOptions.args ??= [])
+  for (const arg of CHROMIUM_LAUNCH_ARGS) if (!args.includes(arg)) args.push(arg)
+
+  const configPath = path.join(app.getPath('userData'), 'playwright-mcp.config.json')
+  fs.mkdirSync(path.dirname(configPath), { recursive: true })
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
+  return configPath
+}
+
 export function resolvePlaywrightMcpCommand(args: string[]): {
   command: string
   args: string[]
@@ -45,12 +72,19 @@ export function resolvePlaywrightMcpCommand(args: string[]): {
   // Older or hand-edited configs may lack --isolated, so enforce it at spawn time.
   const mcpArgs = args.slice(1)
   if (!mcpArgs.includes('--isolated')) mcpArgs.push('--isolated')
+
+  // Dropped here because writeMcpConfig merges its content into ours instead.
+  const configIndex = mcpArgs.indexOf('--config')
+  const userConfigPath = configIndex === -1 ? undefined : mcpArgs[configIndex + 1]
+  if (configIndex !== -1) mcpArgs.splice(configIndex, userConfigPath ? 2 : 1)
+
   return {
     command: findNode(),
     args: [cliPath, ...mcpArgs],
     env: {
       PLAYWRIGHT_BROWSERS_PATH: getPlaywrightBrowsersPath(),
       ELECTRON_RUN_AS_NODE: '1',
+      PLAYWRIGHT_MCP_CONFIG: writeMcpConfig(userConfigPath),
     },
   }
 }
