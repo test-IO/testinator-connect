@@ -160,6 +160,13 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // Closing the window doesn't quit the app on macOS, so without this the
+  // reference outlives the window and later calls throw "Object has been
+  // destroyed" — a truthiness check does not catch a destroyed object.
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingDeepLink) {
       mainWindow?.webContents.send(IPC_TO_RENDERER.DEEP_LINK_CONFIG, pendingDeepLink)
