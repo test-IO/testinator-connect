@@ -20,7 +20,9 @@ export class Logger {
   constructor(private getWindow: () => BrowserWindow | null) {}
 
   private send(channel: string, payload: unknown): void {
-    this.getWindow()?.webContents.send(channel, payload)
+    const win = this.getWindow()
+    if (!win || win.isDestroyed()) return
+    win.webContents.send(channel, payload)
   }
 
   private log(level: LogEntry['level'], message: string, sessionId?: string): void {
