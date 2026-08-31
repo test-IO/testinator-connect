@@ -1,6 +1,6 @@
 # Agentic QA - connect
 
-A self-contained desktop app that provides a UI for configuring and monitoring **Agentic QA connect** — the bridge that connects local MCP (Model Context Protocol) servers to a remote Agentic QA tooling instance via Socket.IO.
+A self-contained desktop app that provides a UI for configuring and monitoring **Agentic QA connect** — the bridge that connects local MCP (Model Context Protocol) servers to the Agentic QA platform, over a Socket.IO link to the remote Agentic QA connect-gateway.
 
 Built with **Electron 33 + electron-vite + Svelte 5 + TypeScript**.
 
@@ -8,22 +8,22 @@ Built with **Electron 33 + electron-vite + Svelte 5 + TypeScript**.
 
 ## What this app does
 
-Agentic QA connect sits between a remote orchestrator (the Agentic QA tooling instance) and local MCP servers (e.g. Playwright MCP for browser automation, custom Python tools, HTTP/SSE endpoints). It:
+Agentic QA connect sits between the Agentic QA platform (it talks to the connect-gateway, which relays work from Agentic QA tooling) and local MCP servers (e.g. Playwright MCP for browser automation, custom Python tools, HTTP/SSE endpoints). It:
 
 - Discovers tools from configured MCP servers on startup
-- Maintains a persistent Socket.IO connection to the remote tooling instance
-- Routes tool calls from the orchestrator to the correct local MCP server
-- Manages isolated browser sessions per tooling session (stateful mode)
+- Maintains a persistent Socket.IO connection to the remote connect-gateway
+- Routes incoming tool calls to the correct local MCP server
+- Manages isolated browser sessions per remote session (stateful mode)
 - Provides a real-time dashboard showing connection status, active sessions, and an activity log
 
-The Electron app replaces the Python CLI + TUI that ships in `testinator-connect/`. It runs without requiring Python or Node.js to be pre-installed on the user's machine — Python MCP servers are handled via a bundled `uv` binary.
+This Electron app replaces the earlier Python CLI + TUI client that used to live in this repo. It runs without requiring Python or Node.js to be pre-installed on the user's machine — Python MCP servers are handled via a bundled `uv` binary.
 
 ---
 
 ## Architecture overview
 
 ```
-Agentic QA tooling (remote)
+Agentic QA connect-gateway (remote)
         ↕  Socket.IO
   Agentic QA - connect  (this Electron app)
         ↕  MCP protocol (stdio / HTTP / SSE)
@@ -158,8 +158,8 @@ This starts electron-vite in watch mode: the main and preload processes rebuild 
 
 On first launch, the app shows the Config page (no config file found). Fill in:
 
-- **Deployment URL** — URL of the remote Agentic QA tooling instance
-- **Auth Token** — optional bearer token
+- **Deployment URL** — URL of the remote Agentic QA connect-gateway
+- **Auth Token** — handshake token issued in the platform (Admin → Settings → Agentic QA Connect); the gateway refuses the connection without a valid one
 - **MCP Servers** — one or more server definitions (see below)
 
 Config is saved to the OS user-data directory:
@@ -170,7 +170,7 @@ Config is saved to the OS user-data directory:
 
 ```json
 {
-  "deployment_url": "https://your-tooling-instance.example.com",
+  "deployment_url": "https://your-connect-gateway.example.com",
   "auth_token": "",
   "timeout": 120,
   "ssl_verify": false,
@@ -202,7 +202,7 @@ Config is saved to the OS user-data directory:
 - `http` — connects to a Streamable HTTP MCP server. `url` required.
 - `sse` — connects to a Server-Sent Events MCP server. `url` required.
 
-**`stateful: true`** — the server gets a dedicated subprocess per tooling session, providing complete browser isolation between parallel sessions.
+**`stateful: true`** — the server gets a dedicated subprocess per remote session, providing complete browser isolation between parallel sessions.
 
 ### Recommended macOS servers
 
@@ -374,7 +374,7 @@ The app uses Electron's `contextBridge` for secure communication between the ren
 |--------|-------------|
 | `loadConfig()` | Read config from disk |
 | `saveConfig(config)` | Write config to disk |
-| `startService()` | Discover tools + connect to tooling |
+| `startService()` | Discover tools + connect to the gateway |
 | `stopService()` | Disconnect + clean up sessions |
 
 **Main → Renderer** (subscribed via `window.electronAPI.on*`):
@@ -435,7 +435,7 @@ Run this after moving the app to `/Applications`, then launch normally.
 | `electron-vite` | ^2 | Vite-based build tool |
 | `svelte` | ^5 | Renderer UI framework |
 | `@sveltejs/vite-plugin-svelte` | ^4 | Svelte Vite integration |
-| `socket.io-client` | ^4.7 | Socket.IO client for tooling connection |
+| `socket.io-client` | ^4.7 | Socket.IO client for the gateway connection |
 | `@modelcontextprotocol/sdk` | ^1 | MCP client (stdio / HTTP / SSE) |
 | `electron-builder` | ^25 | Packaging (DMG + NSIS) |
 
