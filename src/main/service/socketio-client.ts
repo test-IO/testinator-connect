@@ -88,7 +88,7 @@ export class SocketIOService {
     const socket = this.socket
     const clientId = this.clientId
 
-socket.on('connect', async () => {
+    socket.on('connect', async () => {
       const activeSessions = Object.keys(sessionManager.listSessions())
       const payload = {
         toolkit_configs: buildToolkitConfigs(this.allTools, this.allResources),

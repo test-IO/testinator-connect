@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { AppConfig, ServerConfig } from '../../shared/ipc-types'
+  import { KNOWN_INTEGRATIONS } from '../../shared/known-integrations'
 
   type TestResult = { ok: boolean; toolCount: number; error?: string }
   type ServerEntry = { name: string; conf: ServerConfig; testing?: boolean; testResult?: TestResult | null }
 
   let view: 'cards' | 'json' = $state('cards')
+  let platform = $state('')
 
   // ── cards state ─────────────────────────────────────────────────────────────
   let servers: ServerEntry[] = $state([])
@@ -21,6 +23,7 @@
   let jsonSaved = $state(false)
 
   onMount(async () => {
+    platform = await window.electronAPI.getPlatform()
     savedConfig = await window.electronAPI.loadConfig()
     loadCards(savedConfig)
   })
@@ -53,6 +56,30 @@
 
   function addServer() { servers.push(defaultServer()) }
   function removeServer(i: number) { servers.splice(i, 1) }
+
+  // Unlike addServer(), this pushes a server whose name is the driver id.
+  // That name is the platform's only signal for the driver, so the name
+  // field locks once it matches one (see isKnownIntegrationName).
+  function addKnownIntegration(select: HTMLSelectElement) {
+    const integration = KNOWN_INTEGRATIONS.find((k) => k.id === select.value)
+    select.value = ''
+    if (!integration) return
+    servers.push({
+      name: integration.defaultServerName,
+      conf: { ...integration.conf, args: [...(integration.conf.args ?? [])] },
+    })
+  }
+
+  function knownIntegrationLabel(name: string): string | undefined {
+    return KNOWN_INTEGRATIONS.find((k) => k.id === name)?.label
+  }
+
+  // The name field locks (it's not just badged) once it matches a known
+  // integration id. The platform identifies a driver by server name alone,
+  // so letting the name drift would silently disconnect it from the driver.
+  function isKnownIntegrationName(name: string): boolean {
+    return KNOWN_INTEGRATIONS.some((k) => k.id === name)
+  }
 
   async function testServer(i: number) {
     const entry = servers[i]
@@ -145,6 +172,15 @@
     <div class="header-actions">
       {#if view === 'cards'}
         <button class="json-btn" onclick={switchToJson}>Edit JSON</button>
+        {#if platform === 'win32'}
+          <select class="known-select"
+            onchange={(e) => addKnownIntegration(e.target as HTMLSelectElement)}>
+            <option value="">+ Add known integration</option>
+            {#each KNOWN_INTEGRATIONS as integration (integration.id)}
+              <option value={integration.id} title={integration.description}>{integration.label}</option>
+            {/each}
+          </select>
+        {/if}
         <button class="add-btn" onclick={addServer}>+ Add Server</button>
         <button class="save-btn" onclick={saveCards} disabled={saving}>
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
@@ -171,7 +207,9 @@
             <div class="field inline">
               <!-- svelte-ignore a11y_label_has_associated_control -->
               <label>Name</label>
-              <input type="text" bind:value={entry.name} placeholder="MyServer" class="server-name" />
+              <input type="text" bind:value={entry.name} placeholder="MyServer" class="server-name"
+                disabled={isKnownIntegrationName(entry.name)}
+                title={isKnownIntegrationName(entry.name) ? 'Fixed — the platform identifies this driver by this exact name.' : ''} />
             </div>
             <div class="field inline">
               <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -182,6 +220,11 @@
                 <option value="sse">sse</option>
               </select>
             </div>
+            {#if knownIntegrationLabel(entry.name)}
+              <span class="known-badge" title="Recognised integration — reported to Agentic QA as its driver.">
+                {knownIntegrationLabel(entry.name)}
+              </span>
+            {/if}
             <label class="toggle" title="Stateful: keeps a persistent MCP connection alive per session.">
               <input type="checkbox" bind:checked={entry.conf.stateful} />
               <span class="track"></span>
@@ -279,6 +322,11 @@
     background: transparent; color: #6b7280; font-size: 12px; cursor: pointer;
   }
   .add-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+  .known-select {
+    padding: 7px 10px; border-radius: 6px; border: 1px dashed #374151;
+    background: transparent; color: #6b7280; font-size: 12px; cursor: pointer;
+  }
+  .known-select:hover { border-color: #3b82f6; color: #3b82f6; }
   .save-btn {
     padding: 7px 20px; border-radius: 6px; border: none;
     background: #3b82f6; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -309,6 +357,10 @@
   input:focus, select:focus, textarea:focus { border-color: #3b82f6; }
   .mono { font-family: monospace; font-size: 12px; }
   textarea { resize: vertical; }
+  .known-badge {
+    padding: 3px 8px; border-radius: 10px; background: #1e293b;
+    color: #60a5fa; font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
   .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
   .toggle input { display: none; }
   .track {

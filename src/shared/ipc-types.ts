@@ -10,6 +10,7 @@ export const IPC_TO_MAIN = {
   CONFIG_OPEN_FILE: 'config:open-file',
   GET_INSTALLATION_ID: 'installation:get',
   APP_GET_VERSION: 'app:getVersion',
+  PLATFORM_GET: 'platform:get',
 } as const
 
 export const IPC_TO_RENDERER = {

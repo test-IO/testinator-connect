@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   resetSession: (): Promise<void> => ipcRenderer.invoke(IPC_TO_MAIN.SESSION_RESET),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke(IPC_TO_MAIN.APP_GET_VERSION),
+  getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke(IPC_TO_MAIN.PLATFORM_GET),
   openConfigFile: (): Promise<void> => ipcRenderer.invoke(IPC_TO_MAIN.CONFIG_OPEN_FILE),
   checkPlaywrightBrowser: (browser: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC_TO_MAIN.PLAYWRIGHT_CHECK, browser),

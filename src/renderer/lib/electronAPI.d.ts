@@ -30,6 +30,7 @@ declare global {
       onResourceReadUpdated: (cb: (record: ResourceReadRecord) => void) => void
       resetSession: () => Promise<void>
       getAppVersion: () => Promise<string>
+      getPlatform: () => Promise<NodeJS.Platform>
       openConfigFile: () => Promise<void>
       checkPlaywrightBrowser: (browser: string) => Promise<boolean>
       installPlaywrightBrowser: (browser: string, sudoPassword?: string) => Promise<void>
