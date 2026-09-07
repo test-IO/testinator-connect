@@ -196,7 +196,10 @@ export async function openPersistentSession(conf: ServerConfig): Promise<LiveSes
 // `_serialize_tool_result` produces — `{isError, content: [block...]}`
 // — so both clients are interchangeable on the wire.
 export function serializeToolResult(
-  result: { isError?: boolean; content?: unknown[] } | undefined | null,
+  result:
+    | { isError?: boolean; content?: unknown[]; structuredContent?: unknown }
+    | undefined
+    | null,
 ): SerializedToolResult {
   const rawBlocks = Array.isArray(result?.content) ? result!.content : []
   const content: ContentBlock[] = rawBlocks.map((item) => {
@@ -222,8 +225,43 @@ export function serializeToolResult(
     return { type: 'text', text: String(item) }
   })
 
+  const structured = serializeStructuredContent(result?.structuredContent, content)
+  if (structured) content.push(structured)
+
   return {
     isError: Boolean(result?.isError),
     content,
   }
+}
+
+// A tool that declares an `outputSchema` returns its payload in `structuredContent`, and
+// the spec only RECOMMENDS also serializing it into `content`. cua-driver takes the other
+// option: `list_windows` sends the 30 windows as structuredContent and puts a bare
+// "Found 30 window(s)." in content — so an agent that reads only content is told a count
+// and given nothing to act on, and can never find the window it was asked to drive.
+//
+// Mirroring it into a text block is what makes the data survive: neither testinator-tooling
+// nor the runner knows the field (the wire contract between them is `{isError, content}`),
+// so forwarding it as its own key would only move the drop one hop downstream.
+function serializeStructuredContent(
+  structuredContent: unknown,
+  content: ContentBlock[],
+): ContentBlock | null {
+  if (structuredContent === undefined || structuredContent === null) return null
+
+  let text: string
+  try {
+    text = JSON.stringify(structuredContent)
+  } catch {
+    // Circular or otherwise unserializable — nothing useful to hand on.
+    return null
+  }
+  if (!text) return null
+
+  // Servers that follow the recommendation send the same JSON in content already;
+  // appending it again would just double the tokens.
+  const alreadyPresent = content.some(
+    (block) => typeof block.text === 'string' && block.text.includes(text),
+  )
+  return alreadyPresent ? null : { type: 'text', text }
 }
