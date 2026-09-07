@@ -1,8 +1,8 @@
-# Driving a real browser in a macOS VM with native input
+# Driving a real browser in a macOS VM with OpenCUA
 
 Setup for testing pages that refuse to work under ordinary browser automation. Nothing
 here uses CDP, Playwright, or a debugger: a real Chrome runs inside a macOS VM and is
-driven with operating-system mouse and keyboard events.
+driven with operating-system mouse and keyboard events, via [OpenCUA's `cua-driver`](https://github.com/trycua/cua).
 
 Built and verified against a cloud-gaming site whose click-to-play flow would not start
 under Playwright — the click landed and the page acknowledged it, but the game never
@@ -16,13 +16,10 @@ Apple Silicon, ~60 GB free disk, and:
 
 ```sh
 brew install lume sshpass
-python3 -m venv vncenv && ./vncenv/bin/pip install vncdotool
 ```
 
-`vncdotool` is only for bootstrapping the VM by hand — first-boot setup, granting the TCC
-prompts, signing in — before cua-driver exists to do any of that for you. Once cua-driver
-is installed and connected (step 5), everything goes through it over SSH and VNC is no
-longer in the path.
+`sshpass` is only needed for the guest's default password auth, before an SSH key is
+copied in (step 4).
 
 ## 2. Create the VM
 
@@ -64,62 +61,11 @@ V 'cd /tmp && curl -sL -o chrome.dmg \
 V 'ls "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/Current/Libraries/" | grep -i widevine'
 ```
 
-## 4. Drive it over VNC (manual bootstrapping only)
+## 4. Install cua-driver and connect it to testinator-connect
 
-Needed before cua-driver exists to do this for you — mainly to reach a GUI session for step
-5's permission prompts, and to sign in / click through first-boot dialogs. Once cua-driver
-is installed and granted (step 5), testinator-connect talks to it directly and none of this
-is in the path anymore. Still useful afterwards for debugging the VM itself.
-
-`lume` publishes the guest's screen over VNC, and macOS Screen Sharing injects input at
-system level — so no Accessibility grant is needed inside the guest for this, and nothing
-has to be installed there.
-
-```sh
-PORT=49190; PW='xray-palm-north-falcon'    # from `lume ls`, changes each boot
-VD=./vncenv/bin/vncdotool
-$VD -s "127.0.0.1::$PORT" -p "$PW" --timeout 30 capture screen.png
-$VD -s "127.0.0.1::$PORT" -p "$PW" --timeout 30 move 1280 1334 click 1
-```
-
-### Four traps, all of which cost real time
-
-**One invocation per gesture.** Every `vncdotool` run is a *new* VNC session and pointer
-state does not survive between them. `move` in one run and `click` in the next sends the
-click to a stale position. Always combine: `move X Y click 1`.
-
-**`type` does not shift.** Typing `test_user_1@qa.team` yields
-`test-user-12qa.team` — `_` becomes `-`, `@` becomes `2`. The `underscore` and `at`
-keysyms produce nothing at all. What works is explicit shift:
-
-```sh
-$VD ... type test key shift-minus type user key shift-minus type 1 key shift-2 type qa.team
-```
-
-**No Command modifier and no clipboard paste.** `key super-v` types a literal `v`, and
-`launchctl asuser … pbcopy` fails with *"Operation not permitted"*. Plain `pbcopy` over
-SSH does set the clipboard, but there is no working way to paste it.
-
-**Waits are `pause SECONDS`,** not `w:ms`. Wheel events (`click 4`/`click 5`) and `home`/
-`pgdn` scrolling do not work either — navigate with `open -a "Google Chrome" URL` over SSH
-instead of trying to scroll.
-
-Also keep the Chrome window inside the display, or the page is clipped and unreachable:
-
-```sh
-V 'open -na "Google Chrome" --args --window-position=0,0 --window-size=2560,1520 \
-   --no-first-run --no-default-browser-check "https://example.com"'
-```
-
-Avoid `--force-device-scale-factor` to fit more on screen; it rendered a blank window.
-
-## 5. Install cua-driver and connect it to testinator-connect
-
-This is the part the rest of this doc glossed over: everything above gets you a VM you can
-poke by hand over VNC. What actually makes it usable from testinator-connect is
-[cua-driver](https://github.com/trycua/cua), a small daemon that exposes an MCP server over
-stdio and drives the guest's screen/mouse/keyboard from *inside* the VM — no VNC round trip,
-no external `vncdotool` process per gesture.
+[cua-driver](https://github.com/trycua/cua) is OpenCUA's driver: a small daemon that
+exposes an MCP server over stdio and drives the guest's screen/mouse/keyboard from
+*inside* the VM.
 
 **Copy your SSH key into the guest first.** testinator-connect launches cua-driver over
 `ssh ... -o BatchMode=yes`, which refuses to fall back to a password prompt — it needs
@@ -145,8 +91,8 @@ V '/Users/lume/.local/bin/cua-driver doctor'
 
 **Grant Accessibility and Screen Recording once, over VNC — not SSH.** cua-driver drives the
 screen at the OS level, which macOS gates behind TCC prompts that only a GUI session can
-answer. Connect with Screen Sharing per step 4, then from a Terminal *inside* the VM's own
-screen (not over SSH):
+answer. Connect to the `vnc://` URL `lume ls` reports (macOS Screen Sharing, or any VNC
+client), then from a Terminal *inside* the VM's own screen:
 
 ```sh
 cua-driver permissions grant
@@ -169,9 +115,3 @@ Verify end to end with cua-driver's own tools before touching testinator-connect
 `cua-driver list-tools` and `cua-driver call get_desktop_state` run the same code path
 without SSH or MCP in front of them, so they isolate "is cua-driver working" from "is the
 wiring into testinator-connect working."
-
-## Coordinates
-
-`screencapture`/VNC images come back at the guest's full resolution (2560×1600). If you
-read coordinates off a scaled-down view, multiply back up. To verify a target before
-committing to a click, `move` to it and capture — cheaper than debugging a miss.
