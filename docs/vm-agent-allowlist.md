@@ -54,7 +54,7 @@ DevTools target, which reintroduces exactly the CDP fingerprint the VM exists to
 | `set_value` | Writes straight into an accessibility element, bypassing the UI being tested |
 | `clipboard_read`, `clipboard_write` | Data exfiltration surface with no testing benefit here |
 | `replay_trajectory`, `install_ffmpeg`, `check_for_update` | Maintenance operations |
-| `get_window_state` | Costs the most and buys the least. A Chrome window on netflix.com returns ~485 elements (~25 KB), none of them carrying bounds, so it cannot ground a click — and repeated calls are what overflowed the 1,048,576-token input limit. `get_desktop_state` plus `box_2d` covers the same need. If a check genuinely needs the tree, pass `max_elements` / `query` to bound it |
+| `get_window_state` | Costs the most and buys the least. A Chrome window on a typical web app returns ~485 elements (~25 KB), none of them carrying bounds, so it cannot ground a click — and repeated calls are what overflowed the 1,048,576-token input limit. `get_desktop_state` plus `box_2d` covers the same need. If a check genuinely needs the tree, pass `max_elements` / `query` to bound it |
 | `verify_state`, `get_accessibility_tree`, `zoom`, `page` | Add them if a check needs them; keeping the initial set small keeps tool choice reliable |
 
 ## System prompt section
@@ -94,17 +94,6 @@ Working rules:
 - Never use the `vm__browser_*` tools. They attach a debugger and defeat the purpose of
   driving the VM at all.
 ```
-
-## Netflix-specific notes
-
-Learned the hard way; see `vm-native-input.md`:
-
-- Exactly **one** tab may have the game open. A second one fails with `web-cg-5003`
-  ("close any additional game sessions") and presents as a screen that never advances.
-- Click **Resume game** on the title page. Navigating to `netflix.com/play-game/<id>`
-  directly carries no user activation and drops to a "Start game" screen that stalls.
-- The profile gate must be passed first, or the title page never shows a play button.
-
 
 ## Coordinates
 

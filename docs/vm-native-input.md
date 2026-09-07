@@ -2,21 +2,13 @@
 
 Setup for testing pages that refuse to work under ordinary browser automation. Nothing
 here uses CDP, Playwright, or a debugger: a real Chrome runs inside a macOS VM and is
-driven with operating-system mouse and keyboard events over VNC.
+driven with operating-system mouse and keyboard events.
 
-Built and verified against Netflix cloud games (`netflix.com/title/81677232`), which is
-the case that motivated it.
-
-## Read this first: the failure that cost the most time
-
-Netflix refuses to start a game with `web-cg-5003` — *"Please close any additional game
-sessions, then try again"* — when **the game is open in more than one tab**. The symptom
-is not an error dialog; it is a "Ready to play! / Start game" screen that never advances,
-which looks exactly like a broken automation environment.
-
-Before blaming anything else, confirm exactly one tab has the game open. Several plausible
-theories were chased and disproved on the way here — DRM, an attached debugger, bot
-detection, and a fullscreen race — and none of them were the cause.
+Built and verified against a cloud-gaming site whose click-to-play flow would not start
+under Playwright — the click landed and the page acknowledged it, but the game never
+launched. Several plausible theories were chased and disproved along the way: DRM, an
+attached debugger, bot detection, and a fullscreen race. None of them were the cause; the
+input layer itself was the variable.
 
 ## 1. Host prerequisites
 
@@ -28,8 +20,9 @@ python3 -m venv vncenv && ./vncenv/bin/pip install vncdotool
 ```
 
 `vncdotool` is only for bootstrapping the VM by hand — first-boot setup, granting the TCC
-prompts, signing in. Once cua-driver is installed and running inside the VM, everything
-goes through it over SSH and VNC is no longer in the path.
+prompts, signing in — before cua-driver exists to do any of that for you. Once cua-driver
+is installed and connected (step 5), everything goes through it over SSH and VNC is no
+longer in the path.
 
 ## 2. Create the VM
 
@@ -37,18 +30,19 @@ Use `lume create` with an Apple restore image (~16 GB), not `lume pull` — the 
 images are 43–86 GB, and lume 0.5.1 skips their layers as unsupported media types anyway.
 
 ```sh
-lume create netflix-vm --ipsw latest --unattended tahoe \
+lume create automation-vm --ipsw latest --unattended tahoe \
   --cpu 4 --memory 8GB --disk-size 80GB --display 2560x1600
-lume run netflix-vm
+lume run automation-vm
 lume ls           # ip, ssh, and the vnc:// URL with its password
 ```
 
-Change resolution later with `lume set netflix-vm --display WxH`; that needs a stop/start,
+Change resolution later with `lume set automation-vm --display WxH`; that needs a stop/start,
 **and the restart re-runs Setup Assistant and drops browser cookies**, so set the
 resolution you want before signing in to anything.
 
 Guest credentials are `lume` / `lume`. The VNC port and password change on every boot —
-re-read them from `lume ls` after each start.
+re-read them from `lume ls` after each start. The IP address is stable across restarts
+(only re-check it if you recreate the VM).
 
 ## 3. Install real Chrome in the guest
 
@@ -70,11 +64,16 @@ V 'cd /tmp && curl -sL -o chrome.dmg \
 V 'ls "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/Current/Libraries/" | grep -i widevine'
 ```
 
-## 4. Drive it over VNC
+## 4. Drive it over VNC (manual bootstrapping only)
+
+Needed before cua-driver exists to do this for you — mainly to reach a GUI session for step
+5's permission prompts, and to sign in / click through first-boot dialogs. Once cua-driver
+is installed and granted (step 5), testinator-connect talks to it directly and none of this
+is in the path anymore. Still useful afterwards for debugging the VM itself.
 
 `lume` publishes the guest's screen over VNC, and macOS Screen Sharing injects input at
-system level — so no Accessibility grant is needed inside the guest, and nothing has to be
-installed there.
+system level — so no Accessibility grant is needed inside the guest for this, and nothing
+has to be installed there.
 
 ```sh
 PORT=49190; PW='xray-palm-north-falcon'    # from `lume ls`, changes each boot
@@ -89,12 +88,12 @@ $VD -s "127.0.0.1::$PORT" -p "$PW" --timeout 30 move 1280 1334 click 1
 state does not survive between them. `move` in one run and `click` in the next sends the
 click to a stale position. Always combine: `move X Y click 1`.
 
-**`type` does not shift.** Typing `netflix_gifted_1@qa.team` yields
-`netflix-gifted-12qa.team` — `_` becomes `-`, `@` becomes `2`. The `underscore` and `at`
+**`type` does not shift.** Typing `test_user_1@qa.team` yields
+`test-user-12qa.team` — `_` becomes `-`, `@` becomes `2`. The `underscore` and `at`
 keysyms produce nothing at all. What works is explicit shift:
 
 ```sh
-$VD ... type netflix key shift-minus type gifted key shift-minus type 1 key shift-2 type qa.team
+$VD ... type test key shift-minus type user key shift-minus type 1 key shift-2 type qa.team
 ```
 
 **No Command modifier and no clipboard paste.** `key super-v` types a literal `v`, and
@@ -109,24 +108,67 @@ Also keep the Chrome window inside the display, or the page is clipped and unrea
 
 ```sh
 V 'open -na "Google Chrome" --args --window-position=0,0 --window-size=2560,1520 \
-   --no-first-run --no-default-browser-check "https://www.netflix.com/title/81677232"'
+   --no-first-run --no-default-browser-check "https://example.com"'
 ```
 
 Avoid `--force-device-scale-factor` to fit more on screen; it rendered a blank window.
 
-## 5. The working Netflix sequence
+## 5. Install cua-driver and connect it to testinator-connect
 
-1. Open **one** tab at `netflix.com/title/81677232`
-2. Pass the profile gate — click the viewing profile (an automated session otherwise sits
-   on "Who's watching?" forever and no Play button exists)
-3. Click **Resume game** in the title modal — *not* `netflix.com/play-game/<id>` directly.
-   Navigating straight there carries no user activation, and Netflix falls back to the
-   "Start game" screen
-4. The game goes fullscreen on its own
+This is the part the rest of this doc glossed over: everything above gets you a VM you can
+poke by hand over VNC. What actually makes it usable from testinator-connect is
+[cua-driver](https://github.com/trycua/cua), a small daemon that exposes an MCP server over
+stdio and drives the guest's screen/mouse/keyboard from *inside* the VM — no VNC round trip,
+no external `vncdotool` process per gesture.
 
-Sign-in is a 4-digit code mailed to the account address, so it needs a human in the loop:
-click Continue, fetch the code from the inbox, type it into the first box. Cookies survive
-a graceful Chrome quit but not a VM restart.
+**Copy your SSH key into the guest first.** testinator-connect launches cua-driver over
+`ssh ... -o BatchMode=yes`, which refuses to fall back to a password prompt — it needs
+key-based auth already trusted, or the MCP server will silently fail to start.
+
+```sh
+ssh-copy-id -o StrictHostKeyChecking=no lume@192.168.64.2   # password: lume
+```
+
+**Install cua-driver as the `lume` user** (matches what `doctor` below confirms — installing
+as root leaves files an unprivileged session can't read):
+
+```sh
+V 'curl -fsSL https://cua.ai/driver/install.sh | bash'
+```
+
+This drops the binary at `/Users/lume/.local/bin/cua-driver`. Confirm it landed and is
+healthy:
+
+```sh
+V '/Users/lume/.local/bin/cua-driver doctor'
+```
+
+**Grant Accessibility and Screen Recording once, over VNC — not SSH.** cua-driver drives the
+screen at the OS level, which macOS gates behind TCC prompts that only a GUI session can
+answer. Connect with Screen Sharing per step 4, then from a Terminal *inside* the VM's own
+screen (not over SSH):
+
+```sh
+cua-driver permissions grant
+```
+
+This launches CuaDriver via LaunchServices so the prompts attribute to it correctly, walks
+through Accessibility, Screen Recording, and (on Tahoe) the direct-capture consent dialog,
+then verifies with a live capture. Running this over SSH does not work — there is no GUI
+session for the dialogs to appear in. Re-check anytime with
+`cua-driver permissions status --json` (this one is fine over SSH, once granted once).
+
+**Wire it into testinator-connect.** Add the `MacOS_VM` server to testinator-connect's
+`config.json` — either through the app if it exposes raw server config, or by editing the
+file directly (`~/Library/Application Support/agentic-qa-connect/config.json` on macOS).
+[`macos-vm.mcp-config.json`](./macos-vm.mcp-config.json) has the exact entry; merge it into
+the `servers` object and replace `VM_IP_ADDRESS` with the IP `lume ls` reports for your VM.
+Restart testinator-connect's service after editing — server config is read at connect time.
+
+Verify end to end with cua-driver's own tools before touching testinator-connect:
+`cua-driver list-tools` and `cua-driver call get_desktop_state` run the same code path
+without SSH or MCP in front of them, so they isolate "is cua-driver working" from "is the
+wiring into testinator-connect working."
 
 ## Coordinates
 
