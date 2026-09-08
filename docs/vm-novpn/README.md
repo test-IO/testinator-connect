@@ -78,6 +78,23 @@ agrees with the real egress rather than the VPN's.
 Needs no root on the host and no change to the VPN. Re-run after a host reboot, a VM
 restart, or a VPN reconnect — or use the supervisor script below to automate that.
 
+**Prerequisite: an SSH key already trusted in the guest.** Step 2 below uses
+`-o BatchMode=yes`, which refuses to fall back to a password prompt — `lume ssh` (used
+elsewhere in this doc) authenticates with the `lume`/`lume` password automatically, but a
+plain `ssh -R` reverse tunnel needs key-based auth already set up:
+
+```bash
+ssh-copy-id -o StrictHostKeyChecking=no lume@192.168.64.2   # password: lume
+```
+
+Find your VM's IP (`lume ls`) and physical uplink + gateway before running the commands
+below — the values here are examples, not fixed:
+
+```bash
+lume ls   # ip column
+netstat -rn -f inet | awk '$1=="default" && $NF!~/^utun/ {print $NF, $2; exit}'   # iface, gateway
+```
+
 ```bash
 cd ~/work/testinator-connect/docs/vm-novpn
 
@@ -90,12 +107,6 @@ nohup /usr/bin/python3 vm_socks.py \
 ssh -N -f -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
     -o LogLevel=ERROR -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 \
     -R 1080:127.0.0.1:1080 lume@192.168.64.2
-```
-
-Find `--iface`/`<physical-gateway-ip>` with:
-
-```bash
-netstat -rn -f inet | awk '$1=="default" && $NF!~/^utun/ {print $NF, $2; exit}'
 ```
 
 Step 3 is once-per-VM — `networksetup` persists it inside the guest, so it survives VM
@@ -143,7 +154,9 @@ all, so turn it off in the guest if you stop the host side for a while.
 ## Day-to-day: a supervisor for reboots and restarts
 
 [`lume-vm-novpn.sh`](./lume-vm-novpn.sh) automates the two host-side halves — it re-detects
-the physical uplink on its own, so it also copes with changing networks. Install it once:
+the physical uplink on its own, so it also copes with changing networks. It uses the same
+`BatchMode=yes` SSH as Setup above, so it needs the same SSH key already trusted in the
+guest. Install it once:
 
 ```bash
 mkdir -p ~/.local/bin
