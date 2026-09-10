@@ -196,7 +196,10 @@ export async function openPersistentSession(conf: ServerConfig): Promise<LiveSes
 // `_serialize_tool_result` produces — `{isError, content: [block...]}`
 // — so both clients are interchangeable on the wire.
 export function serializeToolResult(
-  result: { isError?: boolean; content?: unknown[] } | undefined | null,
+  result:
+    | { isError?: boolean; content?: unknown[]; structuredContent?: unknown }
+    | undefined
+    | null,
 ): SerializedToolResult {
   const rawBlocks = Array.isArray(result?.content) ? result!.content : []
   const content: ContentBlock[] = rawBlocks.map((item) => {
@@ -222,8 +225,34 @@ export function serializeToolResult(
     return { type: 'text', text: String(item) }
   })
 
+  const structuredContentAsTextBlock = mirrorStructuredContentIntoTextBlock(
+    result?.structuredContent,
+    content,
+  )
+  if (structuredContentAsTextBlock) content.push(structuredContentAsTextBlock)
+
   return {
     isError: Boolean(result?.isError),
     content,
   }
+}
+
+function mirrorStructuredContentIntoTextBlock(
+  structuredContent: unknown,
+  existingContent: ContentBlock[],
+): ContentBlock | null {
+  if (structuredContent === undefined || structuredContent === null) return null
+
+  let structuredContentJson: string
+  try {
+    structuredContentJson = JSON.stringify(structuredContent)
+  } catch {
+    return null
+  }
+  if (!structuredContentJson) return null
+
+  const jsonAlreadyInContent = existingContent.some(
+    (block) => typeof block.text === 'string' && block.text.includes(structuredContentJson),
+  )
+  return jsonAlreadyInContent ? null : { type: 'text', text: structuredContentJson }
 }

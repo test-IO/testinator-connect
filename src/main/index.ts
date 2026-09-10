@@ -15,11 +15,17 @@ import { sessionManager } from './service/session-manager'
 import { discoverServerTools } from './service/mcp-client'
 import { installBrowser, isBrowserInstalled } from './playwright'
 import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
+import { parseCliArgs, runCli } from './cli'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 import type { AppConfig, ServerConfig, DeepLinkConfigPayload } from '../shared/ipc-types'
 
+const cliArgs = parseCliArgs(process.argv)
+
 // Only one instance may run — deep links delivered to a second launch must
-// reach the already-running window instead of spawning a duplicate app.
+// reach the already-running window instead of spawning a duplicate app. A
+// second --cli invocation hitting this exits the same way: intentional,
+// since two processes racing to present the same connect_app_id would just
+// fight over the same Socket.IO slot.
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -39,7 +45,10 @@ let mainWindow: BrowserWindow | null = null
 let pendingDeepLink: DeepLinkConfigPayload | null = null
 
 // Module scope so deep-link handling can reach them too, not just the IPC layer.
-const logger = new Logger(() => mainWindow)
+const logger = new Logger((channel, payload) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send(channel, payload)
+})
 const service = new ConnectService(logger)
 
 // Nothing awaits this — the OS handlers below are synchronous — so failures are
@@ -116,7 +125,7 @@ async function redeemCode(payload: DeepLinkConfigPayload): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       code: payload.code,
-      connect_app_id: getInstallationId(),
+      connect_app_id: getInstallationId(undefined, loadConfig()?.installation_id),
       display_name: hostname(),
     }),
   })
@@ -194,7 +203,7 @@ function registerIpcHandlers(): void {
   // Exposed so the UI can show the machine's Client ID before it ever connects
   // — you need it to generate a handshake token in workflow.
   ipcMain.handle(IPC_TO_MAIN.GET_INSTALLATION_ID, (): string => {
-    return getInstallationId()
+    return getInstallationId(undefined, loadConfig()?.installation_id)
   })
 
   ipcMain.handle(IPC_TO_MAIN.APP_GET_VERSION, (): string => {
@@ -282,6 +291,13 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  if (cliArgs.cli) {
+    // Headless path: no window, no IPC, no deep-link/protocol registration —
+    // none of that applies without a renderer to talk to.
+    void runCli(cliArgs)
+    return
+  }
+
   if (process.platform === 'darwin' && !app.isPackaged) {
     app.dock?.setIcon(join(app.getAppPath(), 'images/macos/1024x1024.png'))
   }

@@ -153,6 +153,8 @@ npm run dev
 This starts electron-vite in watch mode: the main and preload processes rebuild on save, and the renderer hot-reloads via Vite's dev server at `http://localhost:5173`.
 
 > **Note for VS Code / Claude Code users:** VS Code sets `ELECTRON_RUN_AS_NODE=1` in its extension environment, which prevents Electron from initializing its GUI process. The `npm run dev` script automatically unsets this variable, so running via `npm run dev` works correctly. If you invoke electron directly, prefix with `ELECTRON_RUN_AS_NODE=`.
+>
+> This `VAR=` prefix is POSIX-shell syntax and doesn't work in Windows `cmd.exe`/PowerShell (and `cross-env`, the usual cross-platform fix for this pattern, was tried and didn't resolve it either — worth re-investigating if `dev` needs to run on Windows). It's not an issue for `npm run cli` below: that variable is only ever injected by an editor's *own* integrated terminal, so it's absent in the actual target environment for CLI mode (a Task Scheduler task, a plain terminal window, or any non-editor shell). If you test `npm run cli` from inside VS Code's/Claude Code's integrated terminal on Windows and it misbehaves, open a plain external terminal instead — that's the actual fix, not an env-var prefix.
 
 ### Configuration
 
@@ -227,6 +229,83 @@ For desktop-app testing, `MacOS_MCP` first:
 ```
 
 Both need Accessibility and Screen Recording permissions. Enable one at a time.
+
+### CLI mode (headless, no GUI)
+
+For unattended startup — a Windows Task Scheduler task, a systemd unit, a login-item shortcut — running the full GUI from an open terminal (`npm run dev`) isn't appropriate: the connection dies whenever that terminal closes, and it depends on a signed-in user leaving a window around. CLI mode starts the identical service (tool discovery + Socket.IO connection to tooling) with no `BrowserWindow`, no IPC, no deep-link handling — just line-oriented stdout logging — driven entirely by a config file path:
+
+```bash
+# simplest: config.json sitting next to the repo/app itself, no flags needed
+npm run cli
+
+# packaged app, explicit path
+"Agentic QA - connect.exe" --cli --config C:\path\to\config.json
+
+# from source, explicit path
+npm run cli -- --config /path/to/config.json
+```
+
+With no `--config` and no `CONNECT_CONFIG_PATH` (below), CLI mode looks for `config.json` next to the current working directory before giving up — this is the common single-machine case (config file checked into or copied alongside the repo) and is what `scripts/windows/start-connect.ps1` relies on implicitly.
+
+> **Windows gotcha:** `npm run cli -- --config <path>` was observed, on a real npm-on-Windows
+> install, to silently drop the literal token `--config` from the forwarded args while still
+> passing its value through — even past the `--` separator, and not caused by a quoting mistake.
+> The symptom is the CLI reporting "No config found" despite a correct-looking command. If that
+> happens, set the config path via an environment variable instead — this bypasses npm's argv
+> handling entirely and always works:
+> ```powershell
+> $env:CONNECT_CONFIG_PATH = "C:\path\to\config.json"
+> npm run cli
+> ```
+> `scripts/windows/start-connect.ps1` (the autostart wrapper, below) uses this same env var rather
+> than argv for exactly this reason.
+
+It stays running (reconnecting on drops, same as the GUI's Start button) until it receives `SIGINT`/`SIGTERM`, at which point it cleans up sessions and exits. Exits non-zero immediately if the config file is missing or has no `deployment_url`.
+
+The `--config` file is the exact same `AppConfig` JSON the GUI reads/writes (see [Config schema](#config-schema) above) — `deployment_url`, `auth_token`, `servers`, all of it. One additional field is meaningful only here:
+
+- **`installation_id`** (optional) — pins the machine's `connect_app_id` instead of letting one be generated and persisted to a side file next to the config on first run. Needed for scripted/VM-image provisioning: cloning a golden image without this would have every clone race to generate its own random id on first launch, and there's no way to pre-approve a machine's id in workflow's admin panel before it's ever run once. The GUI never sets this field itself, so a config the GUI wrote is unaffected — the fallback (auto-generate-and-persist) is unchanged.
+
+```json
+{
+  "deployment_url": "https://your-tooling-instance.example.com",
+  "auth_token": "...",
+  "installation_id": "0123456789abcdef",
+  "servers": {
+    "windows_mcp": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["--directory", "C:\\tools\\Windows-MCP", "run", "windows-mcp", "serve"],
+      "stateful": true
+    }
+  }
+}
+```
+
+`auth_token` lives in this same file in both modes — treat a CLI config file as a secret (restrictive file ACLs, never checked into a repo or baked verbatim into a shared VM image template).
+
+### Autostart on Windows (Scheduled Task)
+
+Scripts under [`scripts/windows/`](./scripts/windows/) register CLI mode to start automatically at logon, so it survives reboots without anyone opening a terminal:
+
+```powershell
+# once, from an elevated PowerShell, as/for the account the VM auto-logs-in as
+.\scripts\windows\install-autostart-task.ps1
+```
+
+This registers a Scheduled Task (`TestinatorConnectCLI`) with an **At-logon** trigger and **Interactive** logon type — deliberately, not "run whether or not user is logged on" (`ServiceAccount`/S4U). That alternative executes in a non-interactive session with no rendered desktop, which is exactly the Session-0 isolation that breaks `windows-mcp`'s UI Automation: `testinator-connect` spawns `windows-mcp` as a child process over stdio, so it inherits whatever session `testinator-connect` itself runs in. On a headless cloud VM, "logged on" here means the console-attached VNC server + auto-login setup keeps a real desktop session alive continuously — see the windows-mcp VM setup note for that half.
+
+`start-connect.ps1` (what the task actually runs) invokes the built Electron binary directly rather than going through `npm run cli` — see the file's own header comment for why (an npm-on-Windows argv-forwarding quirk). It's a restart loop, not a bare invocation — Task Scheduler only restarts the *task*, not a process that exits inside it, and the connect process exiting (crash, `deployment_url` unreachable at startup, etc.) would otherwise leave the machine silently disconnected. Output goes to `logs/wrapper.log` (the loop itself) and a timestamped `logs/connect-<timestamp>.log` per attempt, both under the repo root (gitignored).
+
+If you use `fnm` (or another Node version manager that adds itself to PATH via a `$PROFILE` hook rather than the system-wide PATH), the script initializes it itself before building — profiles only load for interactive shells, and neither Task Scheduler's `-File` invocation nor a direct manual run of the `.ps1` loads one, so without this `npm`/`node` would be invisible in that process even though they work fine in an ordinary terminal.
+
+To stop it (e.g. before a config change or `git pull`):
+
+```powershell
+.\scripts\windows\stop-connect.ps1
+```
+
+This kills the wrapper's full process tree (`cmd.exe -> npm -> node -> electron`) — killing only the wrapper's own PID would leave the actual connect process running underneath it, since `Wait-Process` doesn't tie their lifetimes together. Restart it without logging off/on via `Start-ScheduledTask -TaskName TestinatorConnectCLI`, or just log the account back in.
 
 ---
 

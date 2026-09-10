@@ -1,4 +1,3 @@
-import type { BrowserWindow } from 'electron'
 import type {
   LogEntry,
   SessionRecord,
@@ -9,6 +8,10 @@ import type {
 } from '../../shared/ipc-types'
 import { IPC_TO_RENDERER } from '../../shared/ipc-types'
 
+// Decoupled from Electron's BrowserWindow so the same Logger drives both the
+// renderer (via IPC) and CLI mode (via stdout) — see cli.ts's plain-text sink.
+export type LogSink = (channel: string, payload: unknown) => void
+
 export class Logger {
   private totalCalls = 0
   private callCounter = 0
@@ -17,12 +20,10 @@ export class Logger {
   private pendingCalls = new Map<string, { startMs: number; record: ToolCallRecord }>()
   private pendingResourceReads = new Map<string, { startMs: number; record: ResourceReadRecord }>()
 
-  constructor(private getWindow: () => BrowserWindow | null) {}
+  constructor(private sink: LogSink) {}
 
   private send(channel: string, payload: unknown): void {
-    const win = this.getWindow()
-    if (!win || win.isDestroyed()) return
-    win.webContents.send(channel, payload)
+    this.sink(channel, payload)
   }
 
   private log(level: LogEntry['level'], message: string, sessionId?: string): void {

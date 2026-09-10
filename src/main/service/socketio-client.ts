@@ -67,7 +67,7 @@ export class SocketIOService {
     private logger: Logger,
     private onFatalDisconnect?: () => void,
   ) {
-    this.clientId = getInstallationId()
+    this.clientId = getInstallationId(undefined, config.installation_id)
   }
 
   connect(): void {
