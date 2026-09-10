@@ -26,6 +26,16 @@ param(
   [int]$RestartDelaySeconds = 10
 )
 
+# fnm (and similar Node version managers) put node/npm on PATH via a hook in
+# $PROFILE -- which only loads for interactive shells. Task Scheduler invokes
+# this script with -File, and so does a direct manual run of the .ps1 file;
+# neither loads a profile, so without this, npm is invisible here even
+# though it works fine in an ordinary interactive prompt. Harmless no-op if
+# fnm isn't installed.
+if (Get-Command fnm -ErrorAction SilentlyContinue) {
+  fnm env --use-on-cd | Out-String | Invoke-Expression
+}
+
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 # Read by stop-connect.ps1 to find this specific wrapper instance rather than
