@@ -28,7 +28,14 @@ export interface CliArgs {
 export function parseCliArgs(argv: string[]): CliArgs {
   const cli = argv.includes('--cli') || argv.includes('--headless')
   const idx = argv.indexOf('--config')
-  const configPath = idx !== -1 ? argv[idx + 1] : undefined
+  // CONNECT_CONFIG_PATH exists because `npm run cli -- --config <path>` isn't
+  // reliable on Windows: some npm/argv-forwarding stacks there silently drop
+  // the literal token `--config` while still forwarding its value, even past
+  // the `--` separator — observed with a real npm-on-Windows install, not a
+  // quoting mistake on the caller's end. The env var sidesteps npm's argv
+  // handling entirely, since it never has to survive being forwarded through
+  // `npm run`'s own arg parser.
+  const configPath = idx !== -1 ? argv[idx + 1] : process.env.CONNECT_CONFIG_PATH
   return { cli, configPath }
 }
 

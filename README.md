@@ -242,6 +242,19 @@ For unattended startup — a Windows Task Scheduler task, a systemd unit, a logi
 npm run cli -- --config /path/to/config.json
 ```
 
+> **Windows gotcha:** `npm run cli -- --config <path>` was observed, on a real npm-on-Windows
+> install, to silently drop the literal token `--config` from the forwarded args while still
+> passing its value through — even past the `--` separator, and not caused by a quoting mistake.
+> The symptom is the CLI reporting "No config found" despite a correct-looking command. If that
+> happens, set the config path via an environment variable instead — this bypasses npm's argv
+> handling entirely and always works:
+> ```powershell
+> $env:CONNECT_CONFIG_PATH = "C:\path\to\config.json"
+> npm run cli
+> ```
+> `scripts/windows/start-connect.ps1` (the autostart wrapper, below) uses this same env var rather
+> than argv for exactly this reason.
+
 It stays running (reconnecting on drops, same as the GUI's Start button) until it receives `SIGINT`/`SIGTERM`, at which point it cleans up sessions and exits. Exits non-zero immediately if the config file is missing or has no `deployment_url`.
 
 The `--config` file is the exact same `AppConfig` JSON the GUI reads/writes (see [Config schema](#config-schema) above) — `deployment_url`, `auth_token`, `servers`, all of it. One additional field is meaningful only here:
