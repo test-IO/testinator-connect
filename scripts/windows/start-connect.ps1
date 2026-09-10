@@ -81,8 +81,17 @@ try {
     # process. The two-file split (rather than one merged log) is the
     # trade-off: Start-Process's Redirect* parameters refuse to share a
     # single path. $env:CONNECT_CONFIG_PATH above is inherited automatically.
+    #
+    # -WindowStyle Hidden (not -NoNewWindow) is deliberate: -NoNewWindow
+    # shares this script's own console, so a Ctrl+C typed here to get a
+    # prompt back for a diagnostic command -- or simply closing this
+    # window -- sends a termination signal to every process attached to
+    # that console, electron included ("electron.exe exited with signal
+    # SIGINT" despite nobody targeting it directly). A hidden window gives
+    # the child its own console, decoupled from whatever happens to this
+    # one.
     $proc = Start-Process -FilePath $electronPath -ArgumentList @($mainScript, "--cli") `
-      -WorkingDirectory $RepoPath -NoNewWindow -PassThru `
+      -WorkingDirectory $RepoPath -WindowStyle Hidden -PassThru `
       -RedirectStandardOutput $runLog -RedirectStandardError $errLog
 
     Wait-Process -Id $proc.Id
