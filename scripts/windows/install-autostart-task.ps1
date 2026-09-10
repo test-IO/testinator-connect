@@ -1,7 +1,7 @@
 # Registers start-connect.ps1 as a Scheduled Task that fires at logon.
 # Run once, from an elevated PowerShell, as/for the same account that has
-# AutoAdminLogon configured on the VM (see testinator-connect/docs — the
-# windows-mcp VM setup note) — this task only ever runs in that account's
+# AutoAdminLogon configured on the VM (see testinator-connect/docs -- the
+# windows-mcp VM setup note) -- this task only ever runs in that account's
 # session.
 #
 # -LogonType Interactive + -AtLogOn is the deliberate choice here, not
@@ -9,7 +9,7 @@
 # executes in a non-interactive session with no desktop, which is exactly
 # the Session-0 isolation windows-mcp's UI Automation can't work through.
 # This task is only ever "logged on" in the sense of an actual rendered
-# desktop existing to drive — which on a headless cloud VM is what the
+# desktop existing to drive -- which on a headless cloud VM is what the
 # console-attached VNC server + auto-login are for (see the VM setup doc).
 
 param(
@@ -24,12 +24,14 @@ if (-not (Test-Path $scriptPath)) {
   throw "start-connect.ps1 not found at $scriptPath"
 }
 
-$action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -RepoPath `"$RepoPath`" -ConfigPath `"$ConfigPath`""
+# Single-quoted format string -- no interpolation or backtick-escaping needed
+# at all, since the embedded double-quotes are just literal characters here.
+$argument = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -RepoPath "{1}" -ConfigPath "{2}"' -f $scriptPath, $RepoPath, $ConfigPath
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argument
 
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $UserName
 
-# ExecutionTimeLimit defaults to 3 days if left unset — Task Scheduler kills
+# ExecutionTimeLimit defaults to 3 days if left unset -- Task Scheduler kills
 # the task (and this long-lived loop with it) the moment that elapses, with
 # nothing in the logs to explain the disconnect. Zero disables the limit.
 $settings = New-ScheduledTaskSettingsSet `
@@ -42,5 +44,5 @@ $principal = New-ScheduledTaskPrincipal -UserId $UserName -LogonType Interactive
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
   -Settings $settings -Principal $principal -Force
 
-Write-Output "Registered task '$TaskName' — fires at $UserName's next logon."
-Write-Output "To start it immediately without logging off/on: Start-ScheduledTask -TaskName '$TaskName'"
+Write-Output "Registered task $TaskName. It fires at the next logon for $UserName."
+Write-Output "To start it now without logging off/on, run: Start-ScheduledTask -TaskName $TaskName"
