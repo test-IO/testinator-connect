@@ -23,7 +23,8 @@ param(
   [string]$RepoPath = (Resolve-Path "$PSScriptRoot\..\..").Path,
   [string]$ConfigPath = (Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "config.json"),
   [string]$LogDir = (Join-Path (Resolve-Path "$PSScriptRoot\..\..").Path "logs"),
-  [int]$RestartDelaySeconds = 10
+  [int]$RestartDelaySeconds = 10,
+  [int]$LogRetentionDays = 7
 )
 
 # fnm (and similar Node version managers) put node/npm on PATH via a hook in
@@ -37,6 +38,33 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
 }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+# wrapper.log is appended to (Add-Content) for as long as this process lives,
+# which could be weeks if the VM never reboots. Archiving whatever's there
+# from a previous run, at each fresh start, keeps "wrapper.log" meaning
+# "current run" while the old content still exists (as wrapper-<ts>.log)
+# for the retention sweep below to clean up on its own schedule.
+$currentWrapperLog = Join-Path $LogDir "wrapper.log"
+if (Test-Path $currentWrapperLog) {
+  $archiveName = "wrapper-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss")
+  Move-Item -Path $currentWrapperLog -Destination (Join-Path $LogDir $archiveName) -Force
+}
+
+# Every launch attempt creates a fresh connect-*.out.log/.err.log pair -- during
+# a crash loop that's one pair every RestartDelaySeconds, which adds up fast
+# without this. Run once at startup and once per loop iteration below, so logs
+# stay bounded even if this process runs for weeks between reboots rather than
+# only ever being cleaned at the next fresh start.
+function Remove-OldLogs {
+  $cutoff = (Get-Date).AddDays(-$LogRetentionDays)
+  Get-ChildItem -Path $LogDir -Filter "connect-*.log" -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt $cutoff } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+  Get-ChildItem -Path $LogDir -Filter "wrapper-*.log" -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt $cutoff } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+}
+Remove-OldLogs
 
 # Read by stop-connect.ps1 to find this specific wrapper instance rather than
 # guessing by process name -- more than one could exist during a manual test.
@@ -53,9 +81,12 @@ Write-Log ("start-connect.ps1 starting -- repo={0} config={1} (wrapper pid {2})"
 
 Set-Location $RepoPath
 
+# Overwritten, not appended -- only the most recent build matters for
+# debugging, and this wrapper rebuilds on every start, so appending here
+# would grow unbounded across restarts for no benefit.
 $buildLog = Join-Path $LogDir "build.log"
 Write-Log ("Building (electron-vite build) -- log: {0}" -f $buildLog)
-& npm run build *>> $buildLog
+& npm run build *> $buildLog
 if ($LASTEXITCODE -ne 0) {
   Write-Log ("Build failed (exit {0}) -- see {1}. Not starting the loop." -f $LASTEXITCODE, $buildLog)
   Remove-Item -Path $pidFile -ErrorAction SilentlyContinue
@@ -68,6 +99,8 @@ $env:CONNECT_CONFIG_PATH = $ConfigPath
 
 try {
   while ($true) {
+    Remove-OldLogs
+
     # A stray electron.exe left over from a crash, a forced task-kill, or an
     # earlier manual test still holds the app's single-instance lock, which
     # makes a fresh launch exit almost instantly (well under a second, before
