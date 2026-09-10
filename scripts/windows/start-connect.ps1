@@ -68,6 +68,19 @@ $env:CONNECT_CONFIG_PATH = $ConfigPath
 
 try {
   while ($true) {
+    # A stray electron.exe left over from a crash, a forced task-kill, or an
+    # earlier manual test still holds the app's single-instance lock, which
+    # makes a fresh launch exit almost instantly (well under a second, before
+    # even reaching "Connecting") -- indistinguishable from any other quick
+    # exit in the log unless you know to check for this. Safe to blanket-kill
+    # by name here since this VM is dedicated to running only this one
+    # Electron app.
+    $stray = Get-Process electron -ErrorAction SilentlyContinue
+    if ($stray) {
+      Write-Log ("Killing {0} stray electron process(es) before launch" -f $stray.Count)
+      $stray | Stop-Process -Force
+    }
+
     $runLog = Join-Path $LogDir ("connect-{0}.out.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
     $errLog = Join-Path $LogDir ("connect-{0}.err.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
     Write-Log ("Launching electron --cli (config: {0}, log: {1})" -f $ConfigPath, $runLog)
