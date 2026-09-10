@@ -68,17 +68,22 @@ $env:CONNECT_CONFIG_PATH = $ConfigPath
 
 try {
   while ($true) {
-    $runLog = Join-Path $LogDir ("connect-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+    $runLog = Join-Path $LogDir ("connect-{0}.out.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+    $errLog = Join-Path $LogDir ("connect-{0}.err.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
     Write-Log ("Launching electron --cli (config: {0}, log: {1})" -f $ConfigPath, $runLog)
 
-    # Routed through cmd.exe so stdout+stderr merge into one file
-    # (Start-Process's separate -RedirectStandardOutput/-RedirectStandardError
-    # refuse to share a single path). $env:CONNECT_CONFIG_PATH above is
-    # inherited by this child process tree automatically. Single-quoted
-    # format string below -- no backtick-escaping of nested quotes needed.
-    $cmdArgs = '/c "{0}" "{1}" --cli >> "{2}" 2>&1' -f $electronPath, $mainScript, $runLog
-    $proc = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs `
-      -WorkingDirectory $RepoPath -NoNewWindow -PassThru
+    # electron.cmd invoked directly, not through cmd.exe -- an intermediate
+    # shell layer was the actual source of a "system cannot find the path
+    # specified" failure here (plus visibly mangling the build log's
+    # checkmark characters into garbage, a codepage symptom of the same
+    # layer). -ArgumentList as an array needs no manual quoting at all, so
+    # there's nothing left to get corrupted between here and the child
+    # process. The two-file split (rather than one merged log) is the
+    # trade-off: Start-Process's Redirect* parameters refuse to share a
+    # single path. $env:CONNECT_CONFIG_PATH above is inherited automatically.
+    $proc = Start-Process -FilePath $electronPath -ArgumentList @($mainScript, "--cli") `
+      -WorkingDirectory $RepoPath -NoNewWindow -PassThru `
+      -RedirectStandardOutput $runLog -RedirectStandardError $errLog
 
     Wait-Process -Id $proc.Id
     Write-Log ("electron --cli exited with code {0} -- restarting in {1}s" -f $proc.ExitCode, $RestartDelaySeconds)

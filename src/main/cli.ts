@@ -13,6 +13,7 @@
 // a pre-approved client id rather than letting one be generated on first run.
 import { app } from 'electron'
 import * as path from 'path'
+import { existsSync } from 'fs'
 import { loadConfig } from './config'
 import { Logger, type LogSink } from './service/logger'
 import { ConnectService } from './service/connect-service'
@@ -94,7 +95,18 @@ export async function runCli(args: CliArgs): Promise<void> {
   // --config behaves the way it looks like it should from the shell that
   // invoked this — and so the error below names an unambiguous path instead
   // of the raw arg, which is what actually matters once something's wrong.
-  const resolvedConfigPath = args.configPath ? path.resolve(process.cwd(), args.configPath) : undefined
+  //
+  // With neither --config nor CONNECT_CONFIG_PATH given, fall back to
+  // ./config.json next to the cwd (not the GUI's userData location — that
+  // default barely applies to unattended/automation use, which is what CLI
+  // mode is for) — this is the "just run it from the repo dir" case, no
+  // flags or env vars needed for the single-machine common case.
+  const defaultConfigPath = path.join(process.cwd(), 'config.json')
+  const resolvedConfigPath = args.configPath
+    ? path.resolve(process.cwd(), args.configPath)
+    : existsSync(defaultConfigPath)
+      ? defaultConfigPath
+      : undefined
   const config = loadConfig(resolvedConfigPath)
   if (!config) {
     // loadConfig already logged the parse error, if any, to console.error —
@@ -103,7 +115,7 @@ export async function runCli(args: CliArgs): Promise<void> {
     console.error(
       resolvedConfigPath
         ? `No config found at ${resolvedConfigPath}`
-        : 'No config found. Pass --config <path> or save one via the GUI first.',
+        : `No config found. Pass --config <path>, set CONNECT_CONFIG_PATH, put config.json next to the cwd (checked: ${defaultConfigPath}), or save one via the GUI first.`,
     )
     process.exitCode = 1
     app.quit()

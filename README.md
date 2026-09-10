@@ -235,12 +235,17 @@ Both need Accessibility and Screen Recording permissions. Enable one at a time.
 For unattended startup — a Windows Task Scheduler task, a systemd unit, a login-item shortcut — running the full GUI from an open terminal (`npm run dev`) isn't appropriate: the connection dies whenever that terminal closes, and it depends on a signed-in user leaving a window around. CLI mode starts the identical service (tool discovery + Socket.IO connection to tooling) with no `BrowserWindow`, no IPC, no deep-link handling — just line-oriented stdout logging — driven entirely by a config file path:
 
 ```bash
-# packaged app
+# simplest: config.json sitting next to the repo/app itself, no flags needed
+npm run cli
+
+# packaged app, explicit path
 "Agentic QA - connect.exe" --cli --config C:\path\to\config.json
 
-# from source, for local testing
+# from source, explicit path
 npm run cli -- --config /path/to/config.json
 ```
+
+With no `--config` and no `CONNECT_CONFIG_PATH` (below), CLI mode looks for `config.json` next to the current working directory before giving up — this is the common single-machine case (config file checked into or copied alongside the repo) and is what `scripts/windows/start-connect.ps1` relies on implicitly.
 
 > **Windows gotcha:** `npm run cli -- --config <path>` was observed, on a real npm-on-Windows
 > install, to silently drop the literal token `--config` from the forwarded args while still
