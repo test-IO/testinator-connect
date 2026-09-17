@@ -137,5 +137,13 @@ export interface AppConfig {
   timeout?: number
   ssl_verify?: boolean
   display_name?: string
+  // Pins the machine's connect_app_id instead of letting one be generated
+  // and persisted to a side file on first run — needed for scripted/VM-image
+  // provisioning, where the id must match one already approved in workflow's
+  // admin panel, or where cloning a golden image would otherwise race
+  // multiple machines into independently generating their own random id.
+  // The GUI never sets this; when absent, the auto-generated side-file id is
+  // used as before.
+  installation_id?: string
   servers: Record<string, ServerConfig>
 }

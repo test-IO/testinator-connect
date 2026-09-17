@@ -8,8 +8,21 @@ export function getConfigPath(): string {
   return path.join(app.getPath('userData'), 'config.json')
 }
 
-export function getInstallationId(): string {
-  const idPath = path.join(app.getPath('userData'), 'installation-id')
+// CLI mode's installation-id lives next to its --config file rather than in
+// the GUI's userData dir, so a CLI-only install (e.g. a scheduled task with
+// no GUI ever launched) still gets a stable id without touching userData.
+//
+// `pinnedId` (from AppConfig#installation_id) overrides both: provisioning
+// tooling that already knows what id a machine must present (to match a
+// pre-approval in workflow's admin panel, or to keep every clone of a golden
+// VM image from racing to generate its own random id) wins outright, and
+// nothing is written to a side file in that case.
+export function getInstallationId(configPath?: string, pinnedId?: string): string {
+  if (pinnedId) return pinnedId
+
+  const idPath = configPath
+    ? path.join(path.dirname(configPath), 'installation-id')
+    : path.join(app.getPath('userData'), 'installation-id')
   if (fs.existsSync(idPath)) {
     const id = fs.readFileSync(idPath, 'utf8').trim()
     if (id.length === 16) return id
@@ -20,8 +33,8 @@ export function getInstallationId(): string {
   return id
 }
 
-export function loadConfig(): AppConfig | null {
-  const configPath = getConfigPath()
+export function loadConfig(overridePath?: string): AppConfig | null {
+  const configPath = overridePath ?? getConfigPath()
   if (!fs.existsSync(configPath)) return null
   try {
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'))
@@ -35,9 +48,17 @@ export function loadConfig(): AppConfig | null {
       timeout: Number(raw.timeout ?? 120),
       ssl_verify: raw.ssl_verify ?? false,
       display_name: raw.display_name,
+      installation_id: raw.installation_id,
       servers,
     }
-  } catch {
+  } catch (e) {
+    // Swallowed rather than thrown (GUI callers expect null → "no config
+    // found" and render the empty Config page), but logged so a malformed
+    // file doesn't look identical to a missing one — that distinction cost
+    // real debugging time once already (CLI mode reporting "no config
+    // found" for a config.json that in fact existed, just with a JSON
+    // syntax error in it).
+    console.error(`Failed to parse config at ${configPath}: ${e instanceof Error ? e.message : String(e)}`)
     return null
   }
 }
