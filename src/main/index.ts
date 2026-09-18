@@ -204,6 +204,10 @@ function registerIpcHandlers(): void {
     return app.isPackaged ? app.getVersion() : 'dev'
   })
 
+  ipcMain.handle(IPC_TO_MAIN.APP_GET_PLATFORM, (): NodeJS.Platform => {
+    return process.platform
+  })
+
   ipcMain.handle(IPC_TO_MAIN.CONFIG_SAVE, (_event, config: AppConfig): void => {
     try {
       saveConfig(config)
