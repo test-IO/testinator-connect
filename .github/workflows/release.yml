@@ -42,6 +42,9 @@ jobs:
           echo "version=${pkg_version}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build
+        env:
+          AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
+          AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
         run: npm run build
 
       - name: Package and publish release
@@ -91,6 +94,9 @@ jobs:
           echo "version=$pkgVersion-$sha" >> $env:GITHUB_OUTPUT
 
       - name: Build
+        env:
+          AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
+          AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
         run: npm run build
 
       - name: Package and publish release

@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
+    "types": ["vite/client"],
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@shared/*": ["./src/shared/*"]

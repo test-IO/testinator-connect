@@ -8,6 +8,7 @@ function getWindowIcon(): string | undefined {
   return undefined
 }
 import { execSync } from 'child_process'
+import { initAirbrake } from './airbrake'
 import { loadConfig, saveConfig, getConfigPath, getInstallationId } from './config'
 import { Logger } from './service/logger'
 import { ConnectService } from './service/connect-service'
@@ -17,6 +18,8 @@ import { installBrowser, isBrowserInstalled } from './playwright'
 import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 import type { AppConfig, ServerConfig, DeepLinkConfigPayload } from '../shared/ipc-types'
+
+initAirbrake()
 
 // Only one instance may run — deep links delivered to a second launch must
 // reach the already-running window instead of spawning a duplicate app.
