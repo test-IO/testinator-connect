@@ -1,5 +1,5 @@
 {
-  "include": ["src/renderer/**/*"],
+  "include": ["src/renderer/**/*", "src/shared/**/*"],
   "compilerOptions": {
     "composite": true,
     "module": "ESNext",
@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
+    "types": ["vite/client"],
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@shared/*": ["./src/shared/*"]

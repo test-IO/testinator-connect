@@ -20,6 +20,7 @@ export const resourceReads: ResourceReadRecord[] = $state([])
 export const deepLinkPrefill: { deploymentUrl: string | null; authToken: string | null } =
   $state({ deploymentUrl: null, authToken: null })
 export const appVersion: { value: string } = $state({ value: '' })
+export const platform: { value: string | null } = $state({ value: null })
 
 // Set once a deep link has triggered (or confirmed) a connect, so the app
 // shell can jump to the Dashboard tab and show a one-time confirmation
@@ -37,6 +38,10 @@ export function initIpc(): void {
 
   window.electronAPI.getAppVersion().then((version) => {
     appVersion.value = version
+  })
+
+  window.electronAPI.getPlatform().then((label) => {
+    platform.value = label
   })
 
   window.electronAPI.onLogEntry((entry) => {

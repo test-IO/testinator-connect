@@ -13,6 +13,8 @@
     "dist:win": "npm run build && electron-builder --publish never --win"
   },
   "dependencies": {
+    "@airbrake/browser": "^2.1.9",
+    "@airbrake/node": "^2.1.9",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/mcp": "^0.0.76",
     "npm": "^10.9.8",
