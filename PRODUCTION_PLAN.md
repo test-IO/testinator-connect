@@ -101,13 +101,93 @@ self-update in the field.
 
 ### Phase 0 — Vendor acquisition (blocking, needs approval/budget)
 - [ ] Enroll in the Apple Developer Program, obtain a Developer ID
-      Application certificate.
+      Application certificate. (See **Apple code signing checklist** below
+      for the concrete steps and where each credential comes from.)
 - [ ] Purchase a Windows code-signing certificate (EV recommended); provision
       access (hardware token or cloud HSM/CI-compatible signing service).
 - [ ] Store credentials as GitHub Actions secrets (`CSC_LINK`,
       `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
       `APPLE_TEAM_ID` for mac; equivalent secrets for the Windows signing
       tool chosen).
+
+#### Apple code signing checklist — how we actually get the credentials
+
+This maps directly to the five secrets already scaffolded (but commented
+out) in `.github/workflows/release.yml`: `CSC_LINK`, `CSC_KEY_PASSWORD`,
+`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`.
+
+1. **Decide who owns the Apple account.**
+   - [ ] Determine whether we enroll as an **Organization** (recommended —
+     the certificate is issued to the company, not an individual, so it
+     survives someone leaving) or as an **Individual**.
+   - [ ] For an Organization account, we need a **D-U-N-S number** for the
+     legal entity. If we don't already have one, request it free from Dun &
+     Bradstreet at [apple.com/business/dunsnumber](https://developer.apple.com/support/D-U-N-S/)
+     — this step alone can take 1–5 business days (longer if the entity has
+     no existing D-U-N-S record), so it should be kicked off first since it
+     gates everything after it.
+   - [ ] Identify a **legal signing authority** at the company — Apple
+     requires someone with authority to bind the organization (e.g. an
+     officer) to accept the Apple Developer Agreement during enrollment.
+
+2. **Enroll in the Apple Developer Program** ($99/year, paid by credit card
+   or invoice depending on account type).
+   - [ ] Go to [developer.apple.com/programs/enroll](https://developer.apple.com/programs/enroll)
+     and enroll using the D-U-N-S number and legal entity details from step 1.
+   - [ ] Apple verifies the organization's identity and legal existence
+     (may involve a phone call to the company) before approving — budget a
+     few extra days for this.
+   - [ ] Once approved, note the **Team ID** shown in the membership
+     details — this becomes the `APPLE_TEAM_ID` secret.
+
+3. **Create the signing certificate.**
+   - [ ] In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list),
+     create a **Developer ID Application** certificate (this is the
+     certificate type for software distributed outside the Mac App Store —
+     not the "Mac App Distribution" one).
+   - [ ] This requires generating a Certificate Signing Request (CSR) first,
+     via Keychain Access on a Mac (Keychain Access → Certificate Assistant →
+     Request a Certificate From a Certificate Authority).
+   - [ ] Download the issued certificate and install it into Keychain Access
+     on the machine that generated the CSR.
+   - [ ] Export the certificate **and its private key** as a `.p12` file
+     from Keychain Access (right-click the cert → Export), setting an export
+     password.
+   - [ ] Base64-encode the `.p12` for CI: `base64 -i DeveloperIDApp.p12 |
+     pbcopy`. This value becomes the `CSC_LINK` secret; the export password
+     becomes `CSC_KEY_PASSWORD`. (This mirrors what `.env.local.example`
+     already documents for local signed builds via `npm run dist:mac:signed`
+     — the CI secret and the local `.env.local` value are the same
+     credential, just stored in two places.)
+
+4. **Set up notarization credentials** (separate from the signing cert —
+   this is what lets `@electron/notarize`/electron-builder submit the signed
+   build to Apple's notary service).
+   - [ ] Use the Apple ID email associated with the Developer Program
+     membership → this becomes `APPLE_ID`.
+   - [ ] Generate an **app-specific password** for that Apple ID at
+     [appleid.apple.com](https://appleid.apple.com) → Sign-In and Security →
+     App-Specific Passwords. (Requires two-factor authentication to be
+     enabled on the Apple ID, which Apple mandates anyway.) → this becomes
+     `APPLE_APP_SPECIFIC_PASSWORD`.
+   - [ ] `APPLE_TEAM_ID` is the same Team ID captured in step 2.
+
+5. **Wire the four values into CI.**
+   - [ ] Add `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+     `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` as encrypted repository
+     (or environment) secrets in GitHub (`Settings → Secrets and variables →
+     Actions`).
+   - [ ] Uncomment the corresponding `env:` lines already present in
+     `.github/workflows/release.yml` (currently commented out).
+   - [ ] Set `mac.identity` in `electron-builder.yml` to the real Developer
+     ID identity (replacing `"-"`) and enable `notarize` (currently `false`).
+
+**Ownership note:** steps 1–2 need someone with legal/financial authority in
+the org (this is a company enrollment, not a personal dev account); steps
+3–5 are a one-time technical setup that engineering can do once enrollment
+is approved. Whoever holds the Apple ID used in step 4 should be a role
+account or shared credential the team controls, not a single individual's
+personal Apple ID, so access doesn't disappear if that person leaves.
 
 ### Phase 1 — Updater dependency and main-process wiring
 - [ ] Add `electron-updater` to `dependencies` in `package.json`.
