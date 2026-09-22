@@ -1,5 +1,40 @@
 # Production Plan: Auto-Update Readiness
 
+## What "production-ready" means here
+
+**Signed, notarized builds.** macOS builds signed with an Apple Developer ID
+and notarized by Apple so Gatekeeper opens them without a warning. Windows
+builds signed with a code-signing certificate so SmartScreen doesn't flag the
+installer as untrusted. Today macOS builds are ad-hoc signed with
+notarization explicitly disabled, and Windows builds are unsigned — CI
+already has the signing steps scaffolded but commented out.
+
+**Silent auto-update.** Adding `electron-updater` (a third-party library, not
+something Electron ships with) so the app checks for new releases, downloads
+them in the background, and prompts a restart to apply — no manual
+redownload, ever again. None of this exists yet: no updater dependency, no
+check/download/install code anywhere in the app today.
+
+**A real release pipeline.** CI already builds and publishes installers for
+both platforms automatically on every push to `main` — that part is done,
+not something to build. What's missing is signing/notarization in that same
+pipeline, and a consistent version scheme (the app's `package.json` version
+is frozen at `0.0.1` while GitHub release tags show `v1.8.x` — these need to
+be reconciled or the updater can't reliably tell what's newer).
+
+**A clear download path.** Releases currently land on the repo's GitHub
+Releases page — that's the de facto download path today. Whether that's the
+right permanent landing page (vs. something more discoverable) is a separate
+decision, but there's already a place users can get the current build from.
+
+### The outcome
+
+By the end of this: a user finds the app, downloads it once, installs it
+with no security warnings, and never has to think about updating it again.
+That's the baseline expectation for any real product — and it's the signal,
+internally and externally, that Agentic Connect has graduated from
+"someone's side project" to something the org is standing behind.
+
 ## Goal
 
 Enable Agentic QA - connect to automatically detect, download, and install new
