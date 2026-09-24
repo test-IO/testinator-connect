@@ -9,6 +9,7 @@ import {
   type ServerDiscoveryResult,
 } from './mcp-client'
 import { sessionManager } from './session-manager'
+import { MAX_CHUNK_BYTES, readFileChunk } from './file-reader'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
 
@@ -185,6 +186,32 @@ socket.on('connect', async () => {
           callback(result)
         } catch (e) {
           this.logger.resourceReadError(serverName, uri, String(e), session_id, readId)
+          callback({ error: String(e) })
+        }
+      },
+    )
+
+    socket.on(
+      'mcp_file_read',
+      async (
+        data: { server: string; path: string; offset?: number; length?: number },
+        callback: (r: unknown) => void,
+      ) => {
+        const { server: serverName, path: filePath, offset = 0, length = MAX_CHUNK_BYTES } = data
+        const conf: ServerConfig | undefined = this.config.servers[serverName]
+
+        if (!conf) {
+          this.logger.error(`Unknown server: ${serverName}`)
+          callback({ error: `Unknown server: ${serverName}` })
+          return
+        }
+
+        try {
+          const chunk = await readFileChunk(conf, filePath, offset, length)
+          if (chunk.eof) this.logger.info(`${serverName}: sent ${filePath} (${chunk.offset + chunk.bytes} bytes)`)
+          callback(chunk)
+        } catch (e) {
+          this.logger.error(`${serverName}: reading ${filePath} failed: ${e}`)
           callback({ error: String(e) })
         }
       },

@@ -109,3 +109,14 @@ To verify cua-driver itself is working, independent of testinator-connect's wiri
 cua-driver list-tools
 cua-driver call get_desktop_state
 ```
+
+## 5. Screen recordings
+
+An agent records the VM's screen with cua-driver's `start_recording` (`record_video: true`)
+and `stop_recording`. The video is written inside the VM, so on stop tooling copies it off
+through testinator-connect and stores it with the run.
+
+testinator-connect reads the file over the same ssh command it launches cua-driver with, and
+only from the directories the server's `files.roots` lists — the entry above allows
+`/Users/lume/testinator-recordings`, so record into a directory under it. A server with no
+`files.roots`, or one not launched over ssh, refuses every read.
