@@ -50,7 +50,10 @@ $edge = Get-Process msedge -ErrorAction SilentlyContinue |
         Select-Object -First 1
 
 if ($edge) {
-    [Win32]::ShowWindow($edge.MainWindowHandle, 9)   # SW_RESTORE, in case it is minimized
+    # SW_SHOWMAXIMIZED, not SW_RESTORE: restore un-minimizes a minimized window but also
+    # un-maximizes an already-maximized one ("restores it to its original size and
+    # position"), leaving Edge in a small window on the virtual display.
+    [Win32]::ShowWindow($edge.MainWindowHandle, 3)
     [Win32]::SetForegroundWindow($edge.MainWindowHandle)
 }
 
