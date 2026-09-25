@@ -43,11 +43,20 @@ if (-not (Test-Path $TvnServerPath)) {
   throw "tvnserver.exe not found at $TvnServerPath -- pass -TvnServerPath if TightVNC is installed elsewhere"
 }
 
-# Idempotent: -ErrorAction SilentlyContinue because this exits non-zero when
-# there is no service to remove, which is the expected steady state after
-# the first run of this script, not a failure worth surfacing.
-Write-Output "Removing any existing tvnserver Windows service registration..."
-& $TvnServerPath -remove 2>$null
+# Checked first, not just run unconditionally with errors swallowed:
+# tvnserver.exe -remove pops a blocking GUI MessageBox ("Service is not
+# registered") when there's nothing to remove, rather than a silent non-zero
+# exit -- confirmed live, and 2>$null doesn't touch it since it's a real
+# dialog, not stderr output. That dialog blocks this script (and anyone
+# re-running it, which is the expected steady state after the first run)
+# until a human clicks OK, so the existence check below avoids calling
+# -remove at all once there is nothing left to remove.
+if (Get-Service -Name tvnserver -ErrorAction SilentlyContinue) {
+  Write-Output "Removing existing tvnserver Windows service registration..."
+  & $TvnServerPath -remove
+} else {
+  Write-Output "No tvnserver Windows service registered -- nothing to remove."
+}
 
 $action = New-ScheduledTaskAction -Execute $TvnServerPath -Argument "-run"
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $UserName
