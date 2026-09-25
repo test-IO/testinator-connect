@@ -9,7 +9,7 @@ import {
   type ServerDiscoveryResult,
 } from './mcp-client'
 import { sessionManager } from './session-manager'
-import { MAX_CHUNK_BYTES, readFileChunk } from './file-reader'
+import { MAX_CHUNK_BYTES, deletePath, readFileChunk } from './file-reader'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
 
@@ -212,6 +212,29 @@ socket.on('connect', async () => {
           callback(chunk)
         } catch (e) {
           this.logger.error(`${serverName}: reading ${filePath} failed: ${e}`)
+          callback({ error: String(e) })
+        }
+      },
+    )
+
+    socket.on(
+      'mcp_file_delete',
+      async (data: { server: string; path: string }, callback: (r: unknown) => void) => {
+        const { server: serverName, path: targetPath } = data
+        const conf: ServerConfig | undefined = this.config.servers[serverName]
+
+        if (!conf) {
+          this.logger.error(`Unknown server: ${serverName}`)
+          callback({ error: `Unknown server: ${serverName}` })
+          return
+        }
+
+        try {
+          await deletePath(conf, targetPath)
+          this.logger.info(`${serverName}: deleted ${targetPath}`)
+          callback({ ok: true })
+        } catch (e) {
+          this.logger.error(`${serverName}: deleting ${targetPath} failed: ${e}`)
           callback({ error: String(e) })
         }
       },

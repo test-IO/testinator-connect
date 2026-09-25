@@ -174,3 +174,44 @@ function runForStdout(command: string, args: string[]): Promise<Buffer> {
     })
   })
 }
+
+function runToCompletion(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    const timer = setTimeout(() => child.kill('SIGKILL'), READ_TIMEOUT_MS)
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+    child.on('close', (code, signal) => {
+      clearTimeout(timer)
+      if (code !== 0) return reject(new Error(`delete failed (${signal ?? `exit ${code}`}): ${stderr.trim()}`))
+      resolve()
+    })
+  })
+}
+
+/**
+ * Recursively deletes *targetPath* (file or directory), validated against this server's
+ * `files.roots` exactly like a read — a delete capability with no root check would let a
+ * cleanup step reach outside the one directory it's meant to sweep. Missing already is not
+ * an error: this exists to clean up after a successful read, so a caller that already won
+ * the race (or retries) should not fail on it.
+ */
+export async function deletePath(conf: ServerConfig, targetPath: string): Promise<void> {
+  const prefix = sshPrefix(conf)
+  if (!prefix) {
+    const localPath = readableLocalPath(conf, targetPath)
+    await fsPromises.rm(localPath, { recursive: true, force: true })
+    return
+  }
+
+  const target = shellQuote(readablePath(conf, targetPath))
+  const [command, ...args] = prefix
+  await runToCompletion(command, [...args, `rm -rf -- ${target}`])
+}
