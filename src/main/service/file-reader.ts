@@ -52,15 +52,16 @@ export function readablePath(conf: ServerConfig, filePath: string): string {
 
 // Windows' "extended-length path" prefix (bypasses MAX_PATH and tells the OS not to process
 // the rest at all). Confirmed live: cua-driver on a Windows guest reports its recording path
-// as "\\?\C:\Users\Public\...". Node's path.win32 functions don't special-case this prefix,
-// so validation below strips it before normalizing/isAbsolute-checking the remainder and
-// re-attaches it unchanged for the actual file open — never hand the raw prefixed string to
-// path.normalize().
+// as "\\?\C:\Users\Public\...". A plain fs.open() with this prefix intact reads the file
+// fine, but fs.rm({recursive:true}) on the same prefixed path completed with no error and
+// deleted nothing — confirmed live (gcp-windows-test-copy, 2026-09-25): recursive delete's
+// internal directory walk doesn't tolerate this prefix the way a single open() does. None of
+// our paths are anywhere near the ~260-char MAX_PATH this prefix exists to bypass, so the fix
+// is to drop it entirely rather than chase which fs operations tolerate it.
 const EXTENDED_LENGTH_PREFIX = /^\\\\\?\\/
 
-function splitExtendedLengthPrefix(filePath: string): { prefix: string; rest: string } {
-  const match = filePath.match(EXTENDED_LENGTH_PREFIX)
-  return match ? { prefix: match[0], rest: filePath.slice(match[0].length) } : { prefix: '', rest: filePath }
+function stripExtendedLengthPrefix(filePath: string): string {
+  return filePath.replace(EXTENDED_LENGTH_PREFIX, '')
 }
 
 /**
@@ -71,20 +72,20 @@ function splitExtendedLengthPrefix(filePath: string): { prefix: string; rest: st
  */
 export function readableLocalPath(conf: ServerConfig, filePath: string): string {
   const roots = (conf.files?.roots ?? [])
-    .map((root) => splitExtendedLengthPrefix(root).rest.replace(/[\\/]+$/, ''))
+    .map((root) => stripExtendedLengthPrefix(root).replace(/[\\/]+$/, ''))
     .filter((root) => path.isAbsolute(root))
   if (roots.length === 0) {
     throw new Error('file reads are not enabled for this server: its config has no files.roots')
   }
 
-  const { prefix, rest } = splitExtendedLengthPrefix(filePath)
-  if (!path.isAbsolute(rest) || path.normalize(rest) !== rest) {
+  const target = stripExtendedLengthPrefix(filePath)
+  if (!path.isAbsolute(target) || path.normalize(target) !== target) {
     throw new Error(`not an absolute, normalized path: ${filePath}`)
   }
-  if (!roots.some((root) => rest.startsWith(`${root}${path.sep}`))) {
+  if (!roots.some((root) => target.startsWith(`${root}${path.sep}`))) {
     throw new Error(`${filePath} is outside this server's files.roots`)
   }
-  return prefix + rest
+  return target
 }
 
 async function readLocalFileChunk(filePath: string, offset: number, length: number): Promise<FileChunk> {
