@@ -8,30 +8,34 @@ tool vocabulary (`click`, `get_desktop_state`, `launch_app`, ...) on Windows rat
 windows-mcp's (`Click`, `Screenshot`, `Snapshot`, ...) — they are two independent integrations
 for the same OS, picked per machine by which server its `config.json` advertises.
 
-Everything in [`vm-windows-mcp.md`](./vm-windows-mcp.md) about **getting a real, unlocked,
-console-attached desktop onto a headless cloud VM** (TightVNC install, auto-login + disabled
-lock/sleep, the Scheduled Task autostart pattern, UIPI/elevation caveats) applies identically
-here — cua-driver needs a live interactive desktop exactly as much as windows-mcp does, for
-the same reason (it drives the screen with real OS input, not a debugger). This doc only
-covers what's different: installing cua-driver instead of windows-mcp, and the config/recording
-specifics that follow from it. Do those steps first, then come back here for steps 4+.
+This doc assumes no prior context — follow it top to bottom on a fresh Windows VM and you'll
+end up with a working setup. Everything in it reflects what was actually confirmed live on
+2026-09-25, including the part that took the longest to get right: **keeping the desktop alive
+without needing someone to stay connected to it forever.**
 
-Everything below reflects one live setup (`gcp-windows-test-copy`, verified 2026-09-25) —
-treat anything not explicitly confirmed here as unverified on Windows, the same caution
-[`vm-opencua.md`](./vm-opencua.md) and this integration's own toolbox package
-(`testinator-tooling/src/testinator_tooling/toolboxes/windows_vm_cua/__init__.py`) call out.
+## 1. Provision the VM
 
-## 1–3. Shared Windows VM setup
+A Windows Server 2019/2022 VM (GCP, AWS, Azure — doesn't matter which), with RDP admin access.
+Open the firewall for RDP (port 3389) and, later, VNC (port 5900) — restrict both to your own
+IP, not the world.
 
-Follow [`vm-windows-mcp.md`](./vm-windows-mcp.md) steps 1–3 (cloud VM + RDP admin access,
-TightVNC console-attached server, auto-login and disabled lock/sleep) unchanged. Confirm over
-VNC (not RDP) that it lands on an unlocked desktop by itself before continuing.
+## 2. Set up auto-login
 
-## 4. Install cua-driver
+So the machine has an actual logged-in desktop from the moment it boots, not a login screen
+waiting for someone to type a password:
 
-From an elevated PowerShell, over the VNC session (not RDP — same reasoning as
-`vm-windows-mcp.md`: whatever session installs/launches the driver is the session it inherits
-when testinator-connect later spawns it):
+```powershell
+$key = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+Set-ItemProperty $key AutoAdminLogon -Value "1"
+Set-ItemProperty $key DefaultUserName -Value "<username>"
+Set-ItemProperty $key DefaultPassword -Value "<password>"
+```
+
+Reboot once and confirm (over RDP) that it logs in by itself, with nobody typing a password.
+
+## 3. Install cua-driver
+
+From an elevated PowerShell:
 
 ```powershell
 irm https://cua.ai/driver/install.ps1 | iex
@@ -45,92 +49,139 @@ cua-driver list-tools
 cua-driver call get_desktop_state
 ```
 
-Unlike macOS, nothing here hit an explicit TCC-style permission prompt in the one live setup
-this doc is based on — `check_permissions` reported UI Automation already available with no
-grant step needed (`"uia": true, "elevated": false`). If a future Windows build gates input
-differently, that would show up as `check_permissions` reporting `"uia": false` or clicks
-silently landing nowhere.
+Nothing here needs an explicit permission grant on Windows (unlike macOS's Accessibility/
+Screen-Recording TCC prompts) — `check_permissions` should already report UI Automation
+available (`"uia": true`).
 
-## 5. Get testinator-connect onto the machine
-
-Same as `vm-windows-mcp.md` step 4 — clone and build testinator-connect itself:
-
-```powershell
-git clone <testinator-connect-repo-url> C:\tools\testinator-connect
-cd C:\tools\testinator-connect
-npm install
-npm run build
-```
-
-**Rebuilding after every `git pull`:** `npm run build` only recompiles the main/preload/renderer
-bundles under `out/`; it does not restart a running process. After pulling new commits, fully
-quit and relaunch testinator-connect (or re-run the CLI/task) rather than just reconnecting —
-this is Electron main-process code, so an in-memory process keeps running whatever build it
-already loaded.
-
-## 6. Write config.json
-
-The server entry name is **not** an externally-mandated string the way windows-mcp's literal
-`"windows_mcp"` is — it just has to match `WindowsVmCuaMCPAdapter.SERVER_NAME` in
-testinator-tooling (`src/testinator_tooling/adapters/windows_vm_cua.py`), currently
-`"cua_driver"`. A mismatch surfaces as an empty tool list on the tooling side, not a
-config-parse error.
-
-```json
-{
-  "deployment_url": "https://<your-tooling-instance>",
-  "auth_token": "<token>",
-  "servers": {
-    "cua_driver": {
-      "type": "stdio",
-      "command": "cua-driver",
-      "args": ["mcp"],
-      "stateful": true,
-      "files": {
-        "roots": [
-          "C:\\Users\\Public\\testinator-recordings"
-        ]
-      }
-    }
-  }
-}
-```
-
-`files.roots` is required for **both** screen recordings and cua-driver's `install_ffmpeg`
-sidecar work — without it, every file read (copying a finished recording off the machine) and
-delete (the cleanup step after storing it) is refused with `protected_resource_scope_invalid:
-the home directory is unavailable`, even for a call that otherwise succeeds
-(`start_recording` itself doesn't hit this the same way `stop_recording`'s read does, so an
-apparently-successful start can still leave you unable to retrieve the video). The path above
-matches `RECORDINGS_DIR` in
-`testinator-tooling/src/testinator_tooling/toolboxes/windows_vm_cua/_recording.py` — if you
-use a different directory, update that constant to match, not the other way around. `~/...`
-does **not** resolve on Windows the way it does for macOS's Lume guest — use an absolute
-path; `C:\Users\Public\...` is writable by any local user without elevation on a standard
-install.
-
-Restart testinator-connect after any config.json change — same as macOS/windows-mcp, server
-config is read at connect time.
-
-## 7. ffmpeg (needed for recordings)
-
-cua-driver shells out to `ffmpeg` to encode a recorded video; without it on `PATH`,
-`start_recording` reports it started but a `Video capture failed` warning follows and no
-video ever appears.
+## 4. Install ffmpeg (needed for screen recordings)
 
 ```powershell
 winget install Gyan.FFmpeg
 ```
 
-Or, without touching the machine directly, cua-driver exposes its own `install_ffmpeg` tool
-(call once to preview, again with `confirm: true` to actually install) — useful for driving
-the install through tooling instead of an RDP/VNC session.
+Without this, `start_recording` reports success but a recording never actually appears — see
+the "Known caveats" section below for more on recording quirks.
 
-## 8. Pair the machine with workflow
+## 5. Install the Parsec virtual display driver
 
-Same as `vm-windows-mcp.md` step 8 — Admin → Settings → Agentic QA Connect, Quick Connect or
-manual `connect_app_id` approval, paste the resulting handshake token into `config.json`'s
-`auth_token`, restart.
+**This is the actual hard part of the whole setup, and the part most worth reading carefully.**
+
+A headless cloud VM's desktop session only renders while *something* is actively displaying
+it — an RDP client watching it, or a monitor plugged in. The moment nothing is, Windows tears
+the display down, and anything trying to read the screen (`cua-driver`'s `get_desktop_state`,
+a VNC server, anything) starts failing with errors like `Desktop screenshot failed: The handle
+is invalid. (0x80070006)`. A **virtual display driver** fixes this by giving Windows a fake
+monitor that's always "there," so there's always something to render to.
+
+1. Go to https://github.com/nomi-san/parsec-vdd and install:
+   - the **parsec-vdd driver** itself
+   - the **ParsecDisplay** app (a small GUI for adding/removing a virtual display manually)
+2. Open ParsecDisplay and **add a virtual display**.
+3. Confirm it actually exists:
+   ```powershell
+   Get-PnpDevice -Class Display
+   Get-CimInstance Win32_DesktopMonitor | Select Name, PNPDeviceID, ScreenWidth, ScreenHeight, Status
+   ```
+   You should see an entry for the Parsec display, `Status: OK`.
+
+Having the virtual display installed is **necessary but not sufficient** — see step 6, which
+is the piece that actually makes it take effect for your session.
+
+## 6. The real fix: move your session onto "console"
+
+Even with the virtual display installed, `cua-driver` will still fail after you disconnect
+RDP, unless you do this step. Here's why: Windows keeps a separate session called `console`
+that's the one actually bound to whatever display Windows treats as primary (the new virtual
+one, once it exists) — but logging in over an ordinary RDP connection does **not** put you in
+that session. It creates its own separate session, and whatever's running there (including
+`cua-driver`) never gets the benefit of the persistent virtual display, no matter how long it
+stays installed.
+
+The fix is to move your live session onto `console`. There's a script for this —
+run it from an elevated PowerShell as the **last thing you do** in your RDP session, since it
+disconnects you itself:
+
+```powershell
+.\scripts\windows\prep-cua-session.ps1
+```
+
+It does three things: migrates this session onto `console`, brings Edge to the foreground (so
+the first thing `cua-driver` sees is a window it can actually click — see the UIPI note
+below), and closes its own PowerShell window.
+
+If you'd rather do it by hand:
+
+1. Find your current session's ID:
+   ```powershell
+   query session
+   ```
+   Look at the row starting with `>` — that's your current session. Note its `ID` number
+   (commonly `1`, but it can vary).
+
+2. Move it onto `console`:
+   ```powershell
+   tscon <that ID> /dest:console
+   ```
+   For example, if your session ID was `1`: `tscon 1 /dest:console`
+
+Either way, this instantly relocates your entire live desktop — browser windows, `cua-driver`,
+everything already running — onto the `console` session, which is bound to the virtual display
+and keeps rendering regardless of RDP.
+
+**Leave nothing elevated on screen.** `cua-driver` runs at Medium integrity; an elevated
+("Run as Administrator") window runs at High. Windows' UIPI blocks input from the former to
+the latter, so `cua-driver` can never close an elevated PowerShell window — it will try, the
+clicks will be silently dropped, and it will be stuck. That's why the script closes its own
+window rather than leaving it open, and why `exit` alone isn't enough (that ends the script
+but leaves the console window sitting in the foreground).
+
+## 7. Confirm it worked
+
+- Disconnect RDP entirely (just close the client — don't log off).
+- Call `get_desktop_state` (through testinator-tooling, or `cua-driver call get_desktop_state`
+  if you have another way in). It should keep working — no black screen, no invalid-handle
+  error.
+
+## Important: you have to repeat step 6 every time
+
+This is **not a permanent, one-time fix**. Confirmed live: reconnecting via RDP later, then
+disconnecting again, breaks `cua-driver` again — you have to redo step 6 (find the new
+session ID with `query session`, run `tscon <id> /dest:console` again) every single time after
+reconnecting via RDP. There is no known way yet to make this automatic — an idea was discussed
+(a Scheduled Task that runs the migration automatically the moment RDP disconnects, keyed off
+Windows Event ID 24 in the `TerminalServices-LocalSessionManager` log) but was **not built or
+tested**, so treat it as a lead for next time, not something that exists.
+
+Practical implication: **whenever you've RDP'd into this machine for any reason** (checking
+something, doing more setup), remember to redo steps 6–7 before relying on `cua-driver` again.
+
+## Setting up TightVNC (optional — only if you want a human-visible screen)
+
+None of the above needs a VNC server at all — `cua-driver` works fine without one. This is
+only for when *you* also want to watch the screen (e.g. via `testinator-workflow`'s optional
+`vnc_url` field). Two things confirmed the hard way:
+
+**Don't install TightVNC as a Windows service** (skip the `SERVER_REGISTER_AS_SERVICE=1`
+installer flag if you've seen it in other docs). On Windows Server 2022 this hits a real,
+known upstream bug — `WTSQueryUserToken` fails with `ERROR_NO_TOKEN` — that shows a solid
+black VNC screen even though the service is running. Instead, install TightVNC normally, then
+register it to run as an ordinary process via a Scheduled Task:
+
+```powershell
+.\scripts\windows\install-tvnserver-task.ps1
+```
+
+(from a `testinator-connect` checkout — this script also removes any existing service
+registration for you, since leaving both registered causes two `tvnserver` processes to fight
+over port 5900.)
+
+**Set the password through the app itself, not the old service config.** TightVNC keeps
+completely separate settings for "service mode" (`HKEY_LOCAL_MACHINE\SOFTWARE\TightVNC\Server`)
+and "application mode" (`HKEY_CURRENT_USER\Software\TightVNC\Server`) — a password set one way
+does not exist for the other. Since the task above runs it in application mode, open
+TightVNC's tray icon → config tool and set the password there specifically, even if you
+already set one somewhere else before. If you get `Failed to authenticate... Server is not
+configured properly`, this mismatch is almost certainly why.
 
 ## Known caveats
 
@@ -169,3 +220,9 @@ manual `connect_app_id` approval, paste the resulting handshake token into `conf
   `open`) that don't transfer to Windows without verification, so they were deliberately not
   ported. cua-driver's own native `launch_app` and browser tools are still exposed unwrapped
   — use those directly for now.
+- **A `config.json` server entry and `files.roots` are still required** for tooling to reach
+  this driver at all (recordings and the `install_ffmpeg` sidecar need `files.roots` set to an
+  absolute Windows path such as `C:\Users\Public\testinator-recordings` — `~/...` does not
+  resolve the way it does on macOS's Lume guest). The server name just needs to match
+  `WindowsVmCuaMCPAdapter.SERVER_NAME` in testinator-tooling (currently `"cua_driver"`) — it's
+  not an externally-mandated string.
