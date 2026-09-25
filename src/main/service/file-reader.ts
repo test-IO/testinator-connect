@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { promises as fsPromises } from 'fs'
 import * as path from 'path'
 import type { ServerConfig } from '../../shared/ipc-types'
 
@@ -49,6 +50,73 @@ export function readablePath(conf: ServerConfig, filePath: string): string {
   return filePath
 }
 
+// Windows' "extended-length path" prefix (bypasses MAX_PATH and tells the OS not to process
+// the rest at all). Confirmed live: cua-driver on a Windows guest reports its recording path
+// as "\\?\C:\Users\Public\...". Node's path.win32 functions don't special-case this prefix,
+// so validation below strips it before normalizing/isAbsolute-checking the remainder and
+// re-attaches it unchanged for the actual file open — never hand the raw prefixed string to
+// path.normalize().
+const EXTENDED_LENGTH_PREFIX = /^\\\\\?\\/
+
+function splitExtendedLengthPrefix(filePath: string): { prefix: string; rest: string } {
+  const match = filePath.match(EXTENDED_LENGTH_PREFIX)
+  return match ? { prefix: match[0], rest: filePath.slice(match[0].length) } : { prefix: '', rest: filePath }
+}
+
+/**
+ * Validates *filePath* against this server's configured `files.roots`, the same way
+ * `readablePath` does for an SSH-reached server — but using the connect client's own native
+ * path rules (`path`, not `path.posix`) instead of assuming POSIX. Used when the server is a
+ * plain local process (see `readFileChunk`), where the file is already on this machine.
+ */
+export function readableLocalPath(conf: ServerConfig, filePath: string): string {
+  const roots = (conf.files?.roots ?? [])
+    .map((root) => splitExtendedLengthPrefix(root).rest.replace(/[\\/]+$/, ''))
+    .filter((root) => path.isAbsolute(root))
+  if (roots.length === 0) {
+    throw new Error('file reads are not enabled for this server: its config has no files.roots')
+  }
+
+  const { prefix, rest } = splitExtendedLengthPrefix(filePath)
+  if (!path.isAbsolute(rest) || path.normalize(rest) !== rest) {
+    throw new Error(`not an absolute, normalized path: ${filePath}`)
+  }
+  if (!roots.some((root) => rest.startsWith(`${root}${path.sep}`))) {
+    throw new Error(`${filePath} is outside this server's files.roots`)
+  }
+  return prefix + rest
+}
+
+async function readLocalFileChunk(filePath: string, offset: number, length: number): Promise<FileChunk> {
+  const start = Math.max(0, Math.floor(offset))
+  const size = Math.min(Math.max(1, Math.floor(length)), MAX_CHUNK_BYTES)
+
+  let handle: fsPromises.FileHandle
+  try {
+    handle = await fsPromises.open(filePath, 'r')
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException
+    if (err.code === 'ENOENT') throw new Error('no such file')
+    if (err.code === 'EACCES' || err.code === 'EPERM' || err.code === 'EISDIR') throw new Error('file is not readable')
+    throw e
+  }
+
+  try {
+    const stat = await handle.stat()
+    if (!stat.isFile()) throw new Error('file is not readable')
+    const buffer = Buffer.alloc(size)
+    const { bytesRead } = await handle.read(buffer, 0, size, start)
+    return {
+      data: buffer.subarray(0, bytesRead).toString('base64'),
+      offset: start,
+      bytes: bytesRead,
+      eof: start + bytesRead >= stat.size,
+    }
+  } finally {
+    await handle.close()
+  }
+}
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`
 }
@@ -60,7 +128,13 @@ export async function readFileChunk(
   length: number,
 ): Promise<FileChunk> {
   const prefix = sshPrefix(conf)
-  if (!prefix) throw new Error('file reads need a server launched over ssh')
+  if (!prefix) {
+    // Not an ssh hop into a separate guest (the macOS Lume pattern this function was
+    // originally written for) — this server is a plain local process on the SAME machine as
+    // this connect client (cua-driver, windows-mcp, playwright-mcp, ...), so the file is
+    // already on this filesystem and needs no remote read at all.
+    return readLocalFileChunk(readableLocalPath(conf, filePath), offset, length)
+  }
 
   const target = shellQuote(readablePath(conf, filePath))
   const start = Math.max(0, Math.floor(offset))
