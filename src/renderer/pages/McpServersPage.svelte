@@ -1,9 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { AppConfig, ServerConfig } from '../../shared/ipc-types'
+  import { formatArgs, parseArgs } from '../lib/args'
 
   type TestResult = { ok: boolean; toolCount: number; error?: string }
-  type ServerEntry = { name: string; conf: ServerConfig; testing?: boolean; testResult?: TestResult | null }
+  // argsText is what the user typed; conf.args is parsed from it. Re-deriving
+  // the field from conf.args on every keystroke would move the caret and
+  // rewrite half-typed quotes.
+  type ServerEntry = { name: string; conf: ServerConfig; argsText: string; testing?: boolean; testResult?: TestResult | null }
 
   let view: 'cards' | 'json' = $state('cards')
 
@@ -27,7 +31,7 @@
 
   function loadCards(config: AppConfig | null) {
     if (config) {
-      servers = Object.entries(config.servers ?? {}).map(([name, conf]) => ({ name, conf: { ...conf } }))
+      servers = Object.entries(config.servers ?? {}).map(([name, conf]) => ({ name, conf: { ...conf }, argsText: formatArgs(conf.args ?? []) }))
     } else {
       servers = [defaultServer()]
     }
@@ -48,7 +52,7 @@
   // ── cards actions ────────────────────────────────────────────────────────────
 
   function defaultServer(): ServerEntry {
-    return { name: 'MyServer', conf: { type: 'stdio', command: '', args: [], stateful: false } }
+    return { name: 'MyServer', conf: { type: 'stdio', command: '', args: [], stateful: false }, argsText: '' }
   }
 
   function addServer() { servers.push(defaultServer()) }
@@ -68,8 +72,10 @@
     }
   }
 
-  function getArgsString(entry: ServerEntry): string { return (entry.conf.args ?? []).join(' ') }
-  function setArgsString(entry: ServerEntry, value: string) { entry.conf.args = value ? value.split(/\s+/) : [] }
+  function setArgsText(entry: ServerEntry, value: string) {
+    entry.argsText = value
+    entry.conf.args = parseArgs(value)
+  }
   function getHeadersString(entry: ServerEntry): string { return JSON.stringify(entry.conf.headers ?? {}, null, 2) }
   function setHeadersString(entry: ServerEntry, value: string) {
     try { entry.conf.headers = JSON.parse(value) } catch { /* keep old */ }
@@ -209,9 +215,9 @@
             </div>
             <div class="field">
               <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label>Args <span class="hint">(space-separated)</span></label>
-              <input type="text" value={getArgsString(entry)}
-                oninput={(e) => setArgsString(entry, (e.target as HTMLInputElement).value)}
+              <label>Args <span class="hint">(space-separated; quote args with spaces: --device "Desktop Chrome")</span></label>
+              <input type="text" value={entry.argsText}
+                oninput={(e) => setArgsText(entry, (e.target as HTMLInputElement).value)}
                 placeholder="@playwright/mcp@latest --caps vision" class="mono" />
             </div>
           {:else}
