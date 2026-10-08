@@ -106,14 +106,14 @@ socket.on('connect', async () => {
         socket.emit('mcp_connect', payload)
       }
       const msg = isReconnect
-        ? `Reconnected to Agentic QA tooling (${activeSessions.length} sessions restored)`
-        : 'Connected to Agentic QA tooling'
+        ? `Reconnected to Agentic QA connect-gateway (${activeSessions.length} sessions restored)`
+        : 'Connected to Agentic QA connect-gateway'
       this.logger.success(msg)
       this.logger.setConnected(true, deployment_url, clientId, payload.display_name, isReconnect)
     })
 
     socket.on('disconnect', (reason) => {
-      this.logger.warning('Disconnected from Agentic QA tooling')
+      this.logger.warning('Disconnected from Agentic QA connect-gateway')
       if (reason === 'io client disconnect') {
         // User clicked Stop/Interrupt — show clean disconnected state
         this.logger.setConnected(false)
