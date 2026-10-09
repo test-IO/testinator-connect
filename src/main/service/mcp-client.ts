@@ -44,25 +44,62 @@ function makeClient(): Client {
   )
 }
 
-function buildTransport(conf: ServerConfig) {
+type Transport = StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
+
+const STDERR_TAIL_CHARS = 4096
+const STDERR_REPORT_LINES = 5
+
+// A stdio server that exits before the handshake (bad args, missing module…)
+// only surfaces as "MCP error -32000: Connection closed". Keep the tail of its
+// stderr so the error can say why.
+function buildTransport(conf: ServerConfig): { transport: Transport; stderrTail: () => string } {
   const type = conf.type ?? 'stdio'
   if (type === 'stdio') {
     const resolved = resolveCommand(conf.command ?? '', conf.args ?? [])
-    return new StdioClientTransport({
+    const transport = new StdioClientTransport({
       command: resolved.command,
       args: resolved.args,
       env: resolved.env ? { ...process.env, ...resolved.env } as Record<string, string> : undefined,
+      stderr: 'pipe',
     })
+    let tail = ''
+    transport.stderr?.on('data', (chunk: Buffer) => {
+      // Still echo it, as the previous 'inherit' did, for dev terminals.
+      process.stderr.write(chunk)
+      tail = (tail + chunk.toString()).slice(-STDERR_TAIL_CHARS)
+    })
+    return { transport, stderrTail: () => tail }
   }
   if (type === 'sse') {
-    return new SSEClientTransport(new URL(conf.url!), {
+    const transport = new SSEClientTransport(new URL(conf.url!), {
       requestInit: { headers: conf.headers },
     })
+    return { transport, stderrTail: () => '' }
   }
   // http / streamable
-  return new StreamableHTTPClientTransport(new URL(conf.url!), {
+  const transport = new StreamableHTTPClientTransport(new URL(conf.url!), {
     requestInit: { headers: conf.headers },
   })
+  return { transport, stderrTail: () => '' }
+}
+
+async function connect(client: Client, built: ReturnType<typeof buildTransport>): Promise<void> {
+  try {
+    await client.connect(built.transport)
+  } catch (e) {
+    // The exit can be reported before the last stderr chunk is delivered.
+    await new Promise((resolve) => setImmediate(resolve))
+    const stderr = built.stderrTail()
+      .replace(/\x1b\[[0-9;]*m/g, '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(-STDERR_REPORT_LINES)
+      .join(' | ')
+    if (!stderr) throw e
+    const message = e instanceof Error ? e.message : String(e)
+    throw new Error(`${message} (server stderr: ${stderr})`, { cause: e })
+  }
 }
 
 export interface ServerDiscoveryResult {
@@ -76,9 +113,8 @@ export async function discoverServer(
   conf: ServerConfig,
 ): Promise<ServerDiscoveryResult> {
   const client = makeClient()
-  const transport = buildTransport(conf)
   try {
-    await client.connect(transport)
+    await connect(client, buildTransport(conf))
 
     const toolsRes = await client.listTools()
     const tools: ToolDefinition[] = toolsRes.tools.map((t) => ({
@@ -122,9 +158,8 @@ export async function readResourceStateless(
   uri: string,
 ): Promise<unknown> {
   const client = makeClient()
-  const transport = buildTransport(conf)
   try {
-    await client.connect(transport)
+    await connect(client, buildTransport(conf))
     const res = await client.readResource({ uri })
     return res.contents
   } finally {
@@ -160,9 +195,8 @@ export async function callToolStateless(
   arguments_: Record<string, unknown>,
 ): Promise<SerializedToolResult> {
   const client = makeClient()
-  const transport = buildTransport(conf)
   try {
-    await client.connect(transport)
+    await connect(client, buildTransport(conf))
     const res = await client.callTool({ name: toolName, arguments: arguments_ })
     return serializeToolResult(res)
   } finally {
@@ -172,8 +206,7 @@ export async function callToolStateless(
 
 export async function openPersistentSession(conf: ServerConfig): Promise<LiveSession> {
   const client = makeClient()
-  const transport = buildTransport(conf)
-  await client.connect(transport)
+  await connect(client, buildTransport(conf))
   return {
     client,
     close: () => client.close().catch(() => {}),
