@@ -39,7 +39,7 @@ The Electron main process owns the Socket.IO connection and all MCP client logic
 ## Project structure
 
 ```
-testinator-connect-electron/
+testinator-connect/
 ├── electron.vite.config.ts      # Vite config for main / preload / renderer
 ├── electron-builder.yml         # Packaging config (DMG + NSIS)
 ├── package.json
@@ -107,7 +107,7 @@ No Python required — Python MCP servers are handled via a bundled `uv` binary.
 The project ships with an `.nvmrc` pinned to Node 23 (the version used to build and test this app). If you use **nvm**:
 
 ```bash
-cd testinator-connect-electron
+cd testinator-connect
 nvm use          # reads .nvmrc and activates Node 23
 ```
 
