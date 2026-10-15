@@ -1,0 +1,29 @@
+name: Site
+
+# Tests the GitHub Pages site (docs/) only when it changes; independent of the app build.
+on:
+  push:
+    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts']
+  pull_request:
+    branches: [main]
+    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts']
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test site
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm run test:site
