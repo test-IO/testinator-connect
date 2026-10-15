@@ -22,8 +22,9 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
+      # The lockfile only carries the macOS rollup binary (npm/cli#4828), so ignore it on Linux like the Windows build does.
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-package-lock
 
       - name: Test
         run: npm run test:site
