@@ -2,32 +2,56 @@ name: Release
 
 on:
   push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  verify-version:
-    name: Verify tag matches package.json
+  prepare:
+    name: Check version and create draft
     runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      tag: ${{ steps.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-      - run: node scripts/check-release-version.mjs "${GITHUB_REF_NAME}"
-      - run: npm ci
-      - run: npm test
-      - name: Create draft release
+      - name: Decide whether package.json has a new version
+        id: plan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "${GITHUB_REF_NAME#v}"
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          existing=$(gh release view "$tag" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null || echo none)
+          tag_exists=$([ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ] && echo true || echo false)
+          latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          node scripts/plan-release.mjs "$existing" "$tag_exists" "$latest" >> "$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.release == 'true'
+        run: npm ci
+      - if: steps.plan.outputs.release == 'true'
+        run: npm test
+      - name: Create draft release
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          if [ "${{ steps.plan.outputs.recreate_draft }}" = true ]; then gh release delete "$TAG" --yes; fi
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "${TAG#v}"
 
   release-macos:
     name: Release macOS
-    needs: verify-version
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: macos-latest
 
     steps:
@@ -77,7 +101,8 @@ jobs:
 
   release-windows:
     name: Release Windows
-    needs: verify-version
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: windows-latest
 
     steps:
@@ -119,10 +144,11 @@ jobs:
 
   publish:
     name: Publish release
-    needs: [release-macos, release-windows]
+    needs: [prepare, release-macos, release-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Publish draft as latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
