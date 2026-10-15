@@ -18,6 +18,7 @@
     "@airbrake/node": "^2.1.9",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/mcp": "^0.0.76",
+    "electron-updater": "^6.8.9",
     "npm": "^10.9.8",
     "socket.io-client": "^4.7.0"
   },
