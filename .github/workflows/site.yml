@@ -3,10 +3,10 @@ name: Site
 # Tests the GitHub Pages site (docs/) only when it changes; independent of the app build.
 on:
   push:
-    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts']
+    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   pull_request:
     branches: [main]
-    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts']
+    paths: ['docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   workflow_dispatch:
 
 jobs:
