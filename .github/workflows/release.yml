@@ -16,7 +16,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
       - run: node scripts/check-release-version.mjs "${GITHUB_REF_NAME}"
+      - run: npm ci
+      - run: npm test
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "${GITHUB_REF_NAME#v}"
 
   release-macos:
     name: Release macOS
@@ -66,7 +73,7 @@ jobs:
         run: |
           npx electron-builder --mac \
             --publish always \
-            --config.publish.releaseType=release
+            --config.publish.releaseType=draft
 
   release-windows:
     name: Release Windows
@@ -107,5 +114,15 @@ jobs:
         run: |
           npx electron-builder --win `
             --publish always `
-            --config.publish.releaseType=release
+            --config.publish.releaseType=draft
         shell: pwsh
+
+  publish:
+    name: Publish release
+    needs: [release-macos, release-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft as latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"

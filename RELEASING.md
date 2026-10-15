@@ -16,14 +16,33 @@ git push origin main --follow-tags
 Platform releases no longer tag this repo; older platform tags (`v1.2.3` … `v1.10.x`) are still
 here, and `npm version` refuses to reuse one of them.
 
-The `Release` workflow checks the tag against `package.json`, then builds and publishes
-macOS and Windows installers plus `latest.yml` / `latest-mac.yml` to one GitHub release.
+The `Release` workflow checks the tag against `package.json`, runs the tests, and creates a
+draft release. The macOS and Windows jobs upload installers plus `latest.yml` / `latest-mac.yml`
+to that draft; once both finish, the `publish` job makes it public and `releases/latest`.
+
+## First release (0.1.0)
+
+`package.json` is already `0.1.0`, so `npm version 0.1.0` fails ("Version not changed").
+After the PR merges, tag directly:
+
+```bash
+git checkout main && git pull
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+Merge Task 6 first (testinator-meta: platform releases no longer tag this repo).
+
+## If a build fails
+
+The release stays a draft, so users are unaffected. Fix the cause and re-run the failed jobs,
+or delete the draft release and the tag, then re-tag.
 
 ## Verify
 
 - The release lists `Agentic-QA-Connect-mac-arm64.dmg`, `-mac-x64.dmg`, both `.zip` files,
   `Agentic-QA-Connect-Setup-win-x64.exe`, `latest.yml` and `latest-mac.yml`.
-- An installed previous version shows "Downloading <version>" within a minute of launch.
+- An installed previous version shows "Downloading <version>" within a minute of launch
+  (Windows only until macOS builds are signed).
 
 ## A bad release
 

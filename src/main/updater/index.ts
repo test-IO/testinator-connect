@@ -48,6 +48,12 @@ export function createUpdater(deps: UpdaterDeps): Updater {
   if (enabled) {
     autoUpdater.autoDownload = true
     autoUpdater.autoInstallOnAppQuit = true
+    // Route electron-updater's own logs into the app log.
+    autoUpdater.logger = {
+      info: (m) => deps.logger.info(`[updater] ${String(m)}`),
+      warn: (m) => deps.logger.warning(`[updater] ${String(m)}`),
+      error: (m) => deps.logger.error(`[updater] ${String(m)}`),
+    }
 
     autoUpdater.on('checking-for-update', () => apply({ type: 'checking' }))
     autoUpdater.on('update-available', (info) => {
@@ -75,7 +81,16 @@ export function createUpdater(deps: UpdaterDeps): Updater {
     install: () => {
       if (state.status !== 'downloaded') return { ok: false, reason: 'No update is ready to install yet.' }
       const decision = canInstallNow(deps.getActiveSessionCount())
-      if (decision.ok) setImmediate(() => autoUpdater.quitAndInstall(false, true))
+      if (decision.ok) {
+        // Silent install into the existing location, then relaunch.
+        setImmediate(() => {
+          try {
+            autoUpdater.quitAndInstall(true, true)
+          } catch (e) {
+            deps.logger.error(`Update install failed: ${e instanceof Error ? e.message : String(e)}`)
+          }
+        })
+      }
       return decision
     },
   }
