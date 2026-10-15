@@ -30,7 +30,21 @@ git checkout main && git pull
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-Merge Task 6 first (testinator-meta: platform releases no longer tag this repo).
+Merge test-IO/testinator-meta#292 first (platform releases no longer tag this repo).
+
+## macOS signing
+
+The macOS job signs with the Developer ID Application certificate and notarizes the app.
+Repo secrets: `CSC_LINK` (base64 `.p12`), `CSC_KEY_PASSWORD`, `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Check the job log for
+`identityName=Developer ID Application: …` and `notarization successful`.
+
+The macOS updater is off until the repo variable `MAC_SIGNING_ENABLED=true` is set.
+Set it only after a signed, notarized release installs and runs; builds made after that
+update themselves.
+
+If the Apple ID password changes, its app-specific password stops working: create a new one
+and update `APPLE_APP_SPECIFIC_PASSWORD`.
 
 ## If a build fails
 
@@ -42,7 +56,7 @@ or delete the draft release and the tag, then re-tag.
 - The release lists `Agentic-QA-Connect-mac-arm64.dmg`, `-mac-x64.dmg`, both `.zip` files,
   `Agentic-QA-Connect-Setup-win-x64.exe`, `latest.yml` and `latest-mac.yml`.
 - An installed previous version shows "Downloading <version>" within a minute of launch
-  (Windows only until macOS builds are signed).
+  (on macOS only once `MAC_SIGNING_ENABLED=true`).
 
 ## A bad release
 
