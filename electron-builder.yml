@@ -43,6 +43,7 @@ extraResources:
 
 mac:
   icon: images/macos/icon.icns
+  artifactName: Agentic-QA-Connect-mac-${arch}.${ext}
   identity: "-"
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -53,6 +54,10 @@ mac:
   notarize: false
   target:
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64
@@ -68,6 +73,7 @@ linux:
   icon: images/linux/icons
 
 nsis:
+  artifactName: Agentic-QA-Connect-Setup-win-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   shortcutName: Agentic QA - connect
