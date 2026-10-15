@@ -2,7 +2,6 @@ name: Build
 
 on:
   push:
-    branches-ignore: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +33,9 @@ jobs:
           mv /tmp/uv-x86_64-apple-darwin/uv resources/uv-macos-x64
 
           chmod +x resources/uv-macos-arm64 resources/uv-macos-x64
+
+      - name: Test
+        run: npm test
 
       - name: Build and package
         env:
