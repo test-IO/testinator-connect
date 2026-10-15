@@ -60,12 +60,18 @@ async function init() {
     link.href = other
     link.textContent = `Download the ${intel ? 'Apple silicon' : 'Intel'} build`
     sub.append(`${intel ? 'Apple silicon Mac?' : 'Intel Mac?'} `, link)
-    mac.parentElement.after(sub)
+    sub.style.margin = '0'
+    // Stack the hint under the macOS button; buttons keep their places.
+    const column = document.createElement('div')
+    column.style.cssText = 'display:flex;flex-direction:column;gap:10px'
+    mac.parentElement.style.alignItems = 'flex-start'
+    mac.before(column)
+    column.append(mac, sub)
   }
   if (os === 'mac') {
+    // Only the style moves to the visitor's OS, never the button order.
     win.classList.add('btn-secondary')
     mac.classList.remove('btn-secondary')
-    mac.parentElement.prepend(mac) // the visitor's OS goes first
   }
 }
 
