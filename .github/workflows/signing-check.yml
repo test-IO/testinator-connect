@@ -1,0 +1,51 @@
+name: Signing check
+
+# Temporary E2E diagnostics: prints only public certificate details, never keys or passwords.
+on:
+  push:
+    branches: [e2e/auto-update]
+    paths: ['.github/workflows/signing-check.yml']
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - name: Inspect CSC_LINK
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          p12="$RUNNER_TEMP/cert.p12"
+          echo "$CSC_LINK" | base64 --decode > "$p12"
+          echo "== file: $(wc -c < "$p12") bytes"
+          legacy=$(openssl pkcs12 -help 2>&1 | grep -q -- -legacy && echo -legacy || true)
+          echo "== certificates in .p12"
+          openssl pkcs12 -in "$p12" -passin env:CSC_KEY_PASSWORD -nokeys $legacy \
+            | awk '/BEGIN CERT/{n++} {print > ("'"$RUNNER_TEMP"'/c" n ".pem")} END{print n+0 " certificate(s)"}'
+          for f in "$RUNNER_TEMP"/c[0-9]*.pem; do
+            [ -s "$f" ] || continue
+            openssl x509 -in "$f" -noout -subject -issuer -startdate -enddate 2>/dev/null && echo "--"
+          done
+          echo "== private keys in .p12: $(openssl pkcs12 -in "$p12" -passin env:CSC_KEY_PASSWORD -nocerts -nodes $legacy 2>/dev/null | grep -c 'BEGIN PRIVATE KEY')"
+
+          keychain="$RUNNER_TEMP/check.keychain-db"
+          kp=$(openssl rand -base64 32)
+          curl -sSfL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/g2.cer"
+          security create-keychain -p "$kp" "$keychain"
+          security unlock-keychain -p "$kp" "$keychain"
+          security import "$p12" -k "$keychain" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/g2.cer" -k "$keychain" || true
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | xargs)
+          echo "== all identities (with reasons)"
+          security find-identity -p codesigning "$keychain"
+          rm -f "$p12" "$RUNNER_TEMP"/c*.pem
+
+      - name: Check notarization credentials
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Team ID length: ${#APPLE_TEAM_ID}"
+          xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" | head -5
