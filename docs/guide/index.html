@@ -134,13 +134,6 @@
         letter-spacing: -0.01em;
       }
 
-      header.hero p.lede {
-        color: var(--muted);
-        margin-top: 0.6rem;
-        font-size: 1.02rem;
-        max-width: 60ch;
-      }
-
       h2 {
         font-size: 1.35rem;
         font-weight: 600;
@@ -437,19 +430,6 @@
 
       html[data-os="mac"] .path-card[data-test-choice="windows-app"] { display: none; }
 
-      .gate { display: none; }
-
-      html[data-os="none"] .gate { display: block; }
-
-      html[data-os="none"] .wrap { display: block; }
-
-      html[data-os="none"] .toc,
-      html[data-os="none"] .content > :not(.hero),
-      html[data-os="windows"] .hero .lede,
-      html[data-os="mac"] .hero .lede {
-        display: none;
-      }
-
       .os-note {
         font-size: 0.78rem;
         font-weight: 600;
@@ -527,56 +507,6 @@
       .toc .segmented { display: flex; }
 
       .toc .segmented button { flex: 1; }
-
-      .gate {
-        margin-top: 1.75rem;
-        max-width: 640px;
-      }
-
-      .gate h2 {
-        font-size: 1.2rem;
-        margin-top: 0;
-        margin-bottom: 0.35rem;
-      }
-
-      .gate p { color: var(--muted); }
-
-      .gate-choices {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 0.9rem;
-        margin-top: 1rem;
-      }
-
-      .gate-choice {
-        font: inherit;
-        text-align: left;
-        color: var(--fg);
-        background: var(--panel);
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 1.1rem 1.25rem;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        transition: border-color 0.12s ease, box-shadow 0.12s ease;
-      }
-
-      .gate-choice:hover {
-        border-color: var(--accent);
-        box-shadow: inset 0 0 0 1px var(--accent);
-      }
-
-      .gate-choice-title {
-        font-size: 1.15rem;
-        font-weight: 600;
-      }
-
-      .gate-choice-meta {
-        font-size: 0.85rem;
-        color: var(--muted);
-      }
 
       html[data-tab="install"] [data-tab-panel="setup"],
       html[data-tab="setup"] [data-tab-panel="install"] {
@@ -784,7 +714,6 @@
       .tabs [role="tab"]:focus-visible,
       .subtabs [role="tab"]:focus-visible,
       .next-button:focus-visible,
-      .gate-choice:focus-visible,
       .path-card:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
@@ -852,31 +781,6 @@
       <header class="hero">
         <p class="kicker">User Guide</p>
         <h1>Agentic QA Connect</h1>
-        <p class="lede">
-          Agentic QA Connect is a desktop app you run on the machine your
-          tests should use. It links your Agentic QA installation to things
-          that only exist on that machine — its browser, the MCP servers you
-          want to test, and native Windows applications. This guide covers
-          installing the app, connecting it to your installation, and running
-          <strong>Local Machine</strong> web sessions,
-          <strong>Desktop App</strong> (MCP) sessions and Windows application
-          sessions.
-        </p>
-
-        <section id="gate" class="gate" aria-labelledby="gate-title">
-          <h2 id="gate-title">Which OS will the Connect app run on?</h2>
-          <p>Pick one to see the steps for that system. You can switch it later in the sidebar.</p>
-          <div class="gate-choices">
-            <button type="button" class="gate-choice" data-os-choice="windows">
-              <span class="gate-choice-title">Windows</span>
-              <span class="gate-choice-meta">Windows 10 or 11, x64</span>
-            </button>
-            <button type="button" class="gate-choice" data-os-choice="mac">
-              <span class="gate-choice-title">macOS</span>
-              <span class="gate-choice-meta">Apple silicon or Intel</span>
-            </button>
-          </div>
-        </section>
       </header>
 
       <div class="tabs" role="tablist" aria-label="Guide">
@@ -1877,7 +1781,6 @@
           root.setAttribute("data-tab", state.tab);
           root.setAttribute("data-connect", state.connect);
           sync();
-          if (state.os === "none") return;
           try {
             localStorage.setItem("connect-guide-os", state.os);
             localStorage.setItem("connect-guide-test", state.test);
@@ -1914,7 +1817,7 @@
           var target = id && document.getElementById(id);
           if (!target) return;
           if (makeVisible(target)) scroll = true;
-          if (scroll && current().os !== "none") target.scrollIntoView();
+          if (scroll) target.scrollIntoView();
         }
 
         document.addEventListener("click", function (event) {
@@ -1926,9 +1829,7 @@
           }
           var osButton = event.target.closest("[data-os-choice]");
           if (osButton) {
-            var fromGate = Boolean(osButton.closest("#gate"));
             update({ os: osButton.getAttribute("data-os-choice") });
-            if (fromGate) reveal(true);
             return;
           }
           var connectButton = event.target.closest("[data-connect-choice]");
