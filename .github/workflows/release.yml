@@ -35,8 +35,9 @@ jobs:
           tag_exists=$([ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ] && echo true || echo false)
           latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
           node scripts/plan-release.mjs "$existing" "$tag_exists" "$latest" >> "$GITHUB_OUTPUT"
+      # The lockfile only carries the macOS rollup binary (npm/cli#4828), so ignore it on Linux.
       - if: steps.plan.outputs.release == 'true'
-        run: npm ci
+        run: npm install --no-package-lock
       - if: steps.plan.outputs.release == 'true'
         run: npm test
       - name: Create draft release
