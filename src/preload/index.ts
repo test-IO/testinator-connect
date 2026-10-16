@@ -9,6 +9,8 @@ import type {
   ResourceInfo,
   ResourceReadRecord,
   DeepLinkConfigPayload,
+  ServerConfig,
+  ServerTestProgressPayload,
 } from '../shared/ipc-types'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 
@@ -22,6 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopService: (): Promise<void> => ipcRenderer.invoke(IPC_TO_MAIN.SERVICE_STOP),
   testServer: (name: string, conf: ServerConfig): Promise<{ ok: boolean; toolCount: number; error?: string }> =>
     ipcRenderer.invoke(IPC_TO_MAIN.SERVER_TEST, name, conf),
+  onServerTestProgress: (cb: (payload: ServerTestProgressPayload) => void): void => {
+    ipcRenderer.on(IPC_TO_RENDERER.SERVER_TEST_PROGRESS, (_e, payload) => cb(payload))
+  },
 
   // Main → Renderer: event subscriptions
   onLogEntry: (cb: (entry: LogEntry) => void): void => {

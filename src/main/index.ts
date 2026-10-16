@@ -237,7 +237,9 @@ function registerIpcHandlers(): void {
     IPC_TO_MAIN.SERVER_TEST,
     async (_event, name: string, conf: ServerConfig): Promise<{ ok: boolean; toolCount: number; error?: string }> => {
       try {
-        const info = await discoverServerTools(name, conf)
+        const info = await discoverServerTools(name, conf, (line) => {
+          mainWindow?.webContents.send(IPC_TO_RENDERER.SERVER_TEST_PROGRESS, { name, line })
+        })
         return { ok: true, toolCount: info.tools.length }
       } catch (e) {
         return { ok: false, toolCount: 0, error: e instanceof Error ? e.message : String(e) }

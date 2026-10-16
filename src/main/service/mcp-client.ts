@@ -44,15 +44,28 @@ function makeClient(): Client {
   )
 }
 
-function buildTransport(conf: ServerConfig) {
+function buildTransport(conf: ServerConfig, onStderrLine?: (line: string) => void) {
   const type = conf.type ?? 'stdio'
   if (type === 'stdio') {
     const resolved = resolveCommand(conf.command ?? '', conf.args ?? [])
-    return new StdioClientTransport({
+    const transport = new StdioClientTransport({
       command: resolved.command,
       args: resolved.args,
       env: resolved.env ? { ...process.env, ...resolved.env } as Record<string, string> : undefined,
+      stderr: onStderrLine ? 'pipe' : 'inherit',
     })
+    if (onStderrLine) {
+      let buffer = ''
+      transport.stderr?.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString()
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          if (line.trim()) onStderrLine(line)
+        }
+      })
+    }
+    return transport
   }
   if (type === 'sse') {
     return new SSEClientTransport(new URL(conf.url!), {
@@ -74,9 +87,10 @@ export interface ServerDiscoveryResult {
 export async function discoverServer(
   serverName: string,
   conf: ServerConfig,
+  onProgress?: (line: string) => void,
 ): Promise<ServerDiscoveryResult> {
   const client = makeClient()
-  const transport = buildTransport(conf)
+  const transport = buildTransport(conf, onProgress)
   try {
     await client.connect(transport)
 
@@ -111,8 +125,9 @@ export async function discoverServer(
 export async function discoverServerTools(
   serverName: string,
   conf: ServerConfig,
+  onProgress?: (line: string) => void,
 ): Promise<ServerToolInfo> {
-  const result = await discoverServer(serverName, conf)
+  const result = await discoverServer(serverName, conf, onProgress)
   return { name: result.name, tools: result.tools }
 }
 

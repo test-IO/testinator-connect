@@ -24,8 +24,14 @@ export const IPC_TO_RENDERER = {
   RESOURCES_UPDATED: 'resources:updated',
   RESOURCE_READ_UPDATED: 'resource-read:updated',
   PLAYWRIGHT_INSTALL_PROGRESS: 'playwright:install-progress',
+  SERVER_TEST_PROGRESS: 'server:test-progress',
   DEEP_LINK_CONFIG: 'deep-link:config',
 } as const
+
+export interface ServerTestProgressPayload {
+  name: string
+  line: string
+}
 
 export interface DeepLinkConfigPayload {
   deploymentUrl: string
