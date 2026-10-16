@@ -1,9 +1,12 @@
 name: Build
 
+# Site-only changes (landing page, docs) do not rebuild the app; site.yml tests them.
 on:
   push:
+    paths-ignore: ['docs/**', 'dev-docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', 'dev-docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   workflow_dispatch:
 
 jobs:
