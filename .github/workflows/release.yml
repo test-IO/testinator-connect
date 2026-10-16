@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, e2e/auto-update]
   workflow_dispatch:
 
 permissions:
