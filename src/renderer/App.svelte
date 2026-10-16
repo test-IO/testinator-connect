@@ -4,6 +4,7 @@
   import ConfigPage from './pages/ConfigPage.svelte'
   import DashboardPage from './pages/DashboardPage.svelte'
   import McpServersPage from './pages/McpServersPage.svelte'
+  import UpdateIndicator from './components/UpdateIndicator.svelte'
   import appIcon from '../../images/macos/16x16.png'
 
   type Tab = 'dashboard' | 'config' | 'servers'
@@ -67,7 +68,10 @@
         Config
       </button>
 
-      <span class="version-tag">{appVersion.value}</span>
+      <div class="sidebar-footer">
+        <UpdateIndicator />
+        <span class="version-tag">{appVersion.value}</span>
+      </div>
     </nav>
 
     <main class="content">
@@ -136,13 +140,19 @@
   .nav-item.active { background: #1e2a45; color: #60a5fa; font-weight: 600; }
   .nav-icon { font-size: 14px; opacity: 0.8; }
 
-  .version-tag {
+  .sidebar-footer {
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+  }
+
+  .version-tag {
     padding: 4px 10px 0;
     font-size: 10px;
     color: #374151;
     font-family: monospace;
-    -webkit-app-region: no-drag;
     user-select: text;
   }
 

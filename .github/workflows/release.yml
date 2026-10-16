@@ -3,13 +3,56 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    name: Check version and create draft
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Decide whether package.json has a new version
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          existing=$(gh release view "$tag" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null || echo none)
+          tag_exists=$([ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ] && echo true || echo false)
+          latest=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          node scripts/plan-release.mjs "$existing" "$tag_exists" "$latest" >> "$GITHUB_OUTPUT"
+      # The lockfile only carries the macOS rollup binary (npm/cli#4828), so ignore it on Linux.
+      - if: steps.plan.outputs.release == 'true'
+        run: npm install --no-package-lock
+      - if: steps.plan.outputs.release == 'true'
+        run: npm test
+      - name: Create draft release
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          if [ "${{ steps.plan.outputs.recreate_draft }}" = true ]; then gh release delete "$TAG" --yes; fi
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "${TAG#v}"
+
   release-macos:
     name: Release macOS
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: macos-latest
 
     steps:
@@ -35,35 +78,55 @@ jobs:
 
           chmod +x resources/uv-macos-arm64 resources/uv-macos-x64
 
-      - name: Compute version from package.json + short SHA
-        id: version
-        run: |
-          pkg_version=$(node -p "require('./package.json').version")
-          echo "version=${pkg_version}-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
       - name: Build
         env:
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
+          # Enables the mac updater; set the repo variable once builds are Developer ID signed.
+          MAIN_VITE_MAC_SIGNED: ${{ vars.MAC_SIGNING_ENABLED == 'true' && 'true' || 'false' }}
+          MAIN_VITE_AUTO_UPDATE: ${{ vars.AUTO_UPDATE_ENABLED == 'false' && 'false' || 'true' }}
         run: npm run build
+
+      # electron-builder unlocks its own keychain with the .p12 password, which macOS 26 rejects.
+      - name: Import signing certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -base64 32)
+          echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          curl -sSfL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain" || true
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | xargs)
+          rm "$RUNNER_TEMP/cert.p12"
+          security find-identity -p codesigning "$keychain"
+          if ! security find-identity -v -p codesigning "$keychain" | grep -q 'Developer ID Application'; then
+            echo "::error::CSC_LINK has no valid Developer ID Application certificate with its private key"
+            exit 1
+          fi
 
       - name: Package and publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # CSC_LINK: ${{ secrets.mac_certs }}
-          # CSC_KEY_PASSWORD: ${{ secrets.mac_certs_password }}
-          # APPLE_ID: ${{ secrets.apple_id }}
-          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.apple_app_specific_password }}
-          # APPLE_TEAM_ID: ${{ secrets.apple_team_id }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           npx electron-builder --mac \
             --publish always \
-            --config.extraMetadata.version=${{ steps.version.outputs.version }} \
-            --config.publish.releaseType=release \
-            --config.publish.vPrefixedTagName=false
+            --config.mac.forceCodeSigning=true \
+            --config.publish.releaseType=draft
 
   release-windows:
     name: Release Windows
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: windows-latest
 
     steps:
@@ -85,18 +148,11 @@ jobs:
           Expand-Archive -Path $tmp -DestinationPath "$env:TEMP\uv-win" -Force
           Move-Item "$env:TEMP\uv-win\uv.exe" "resources\uv-windows-x64.exe" -Force
 
-      - name: Compute version from package.json + short SHA
-        id: version
-        shell: pwsh
-        run: |
-          $pkgVersion = node -p "require('./package.json').version"
-          $sha = git rev-parse --short HEAD
-          echo "version=$pkgVersion-$sha" >> $env:GITHUB_OUTPUT
-
       - name: Build
         env:
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
+          MAIN_VITE_AUTO_UPDATE: ${{ vars.AUTO_UPDATE_ENABLED == 'false' && 'false' || 'true' }}
         run: npm run build
 
       - name: Package and publish release
@@ -107,25 +163,16 @@ jobs:
         run: |
           npx electron-builder --win `
             --publish always `
-            --config.extraMetadata.version=${{ steps.version.outputs.version }} `
-            --config.publish.releaseType=release `
-            --config.publish.vPrefixedTagName=false
+            --config.publish.releaseType=draft
         shell: pwsh
 
-  cleanup-old-releases:
-    name: Remove older dev releases
-    needs: [release-macos, release-windows]
+  publish:
+    name: Publish release
+    needs: [prepare, release-macos, release-windows]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Delete all but the newest <version>-<sha> release
+      - name: Publish draft as latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          mapfile -t tags < <(gh release list --repo test-IO/testinator-connect --json tagName,createdAt \
-            --jq '[.[] | select(.tagName | test("-[0-9a-f]{7,40}$"))] | sort_by(.createdAt) | reverse | .[].tagName')
-          for tag in "${tags[@]:1}"; do
-            echo "Deleting old release $tag"
-            gh release delete "$tag" --repo test-IO/testinator-connect --yes --cleanup-tag
-          done
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"

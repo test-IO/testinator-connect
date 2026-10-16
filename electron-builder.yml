@@ -23,6 +23,7 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.*}'
+  - '!build/*'
 
 asarUnpack:
   - resources/**
@@ -43,16 +44,22 @@ extraResources:
 
 mac:
   icon: images/macos/icon.icns
-  identity: "-"
+  artifactName: Agentic-QA-Connect-mac-${arch}.${ext}
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  notarize: true
   target:
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64
@@ -68,6 +75,7 @@ linux:
   icon: images/linux/icons
 
 nsis:
+  artifactName: Agentic-QA-Connect-Setup-win-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   shortcutName: Agentic QA - connect

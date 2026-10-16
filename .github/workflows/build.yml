@@ -1,10 +1,12 @@
 name: Build
 
+# Site-only changes (landing page, docs) do not rebuild the app; site.yml tests them.
 on:
   push:
-    branches-ignore: [main]
+    paths-ignore: ['docs/**', 'dev-docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', 'dev-docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml']
   workflow_dispatch:
 
 jobs:
@@ -35,12 +37,15 @@ jobs:
 
           chmod +x resources/uv-macos-arm64 resources/uv-macos-x64
 
+      - name: Test
+        run: npm test
+
       - name: Build and package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
-        run: npm run dist:mac
+        run: npm run dist:mac -- -c.mac.identity=null
 
   build-windows:
     name: Build Windows

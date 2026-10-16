@@ -6,6 +6,7 @@ import type {
   ToolCallRecord,
   ResourceInfo,
   ResourceReadRecord,
+  UpdateState,
 } from '../../shared/ipc-types'
 
 export const logs: LogEntry[] = $state([])
@@ -21,6 +22,15 @@ export const deepLinkPrefill: { deploymentUrl: string | null; authToken: string 
   $state({ deploymentUrl: null, authToken: null })
 export const appVersion: { value: string } = $state({ value: '' })
 export const platform: { value: string | null } = $state({ value: null })
+
+export const update: UpdateState = $state({ status: 'idle' })
+
+function applyUpdateState(next: UpdateState): void {
+  update.status = next.status
+  update.version = next.version
+  update.percent = next.percent
+  update.message = next.message
+}
 
 // Set once a deep link has triggered (or confirmed) a connect, so the app
 // shell can jump to the Dashboard tab and show a one-time confirmation
@@ -43,6 +53,10 @@ export function initIpc(): void {
   window.electronAPI.getPlatform().then((label) => {
     platform.value = label
   })
+
+  // The first check can finish before the window loads, so read the current state too.
+  void window.electronAPI.getUpdateState().then(applyUpdateState)
+  window.electronAPI.onUpdateState(applyUpdateState)
 
   window.electronAPI.onLogEntry((entry) => {
     logs.push(entry)
