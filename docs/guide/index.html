@@ -25,7 +25,8 @@
         }
         if (test !== "web" && test !== "mcp" && test !== "windows-app") test = "none";
         if (test === "windows-app") os = "windows";
-        if (os !== "windows" && os !== "mac") os = "none";
+        // No choice yet: follow the visitor's OS, macOS when it is not Windows.
+        if (os !== "windows" && os !== "mac") os = /Windows/i.test(navigator.userAgent) ? "windows" : "mac";
         if (tab !== "install" && tab !== "setup") tab = params && params.has("test") ? "setup" : "install";
         root.setAttribute("data-os", os);
         root.setAttribute("data-test", test);
