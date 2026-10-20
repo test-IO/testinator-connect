@@ -89,6 +89,35 @@ testinator-connect/
 
 ---
 
+## Website and user guide (`docs/`)
+
+`docs/` is the public website, published by GitHub Pages at
+**https://connect.testinator.ai** — it is not part of the app.
+
+```
+docs/
+├── index.html                # Landing page (download buttons, overview)
+├── CNAME                     # Custom domain for GitHub Pages — do not edit or delete
+├── assets/
+│   ├── images/               # Landing images (logo)
+│   └── js/download.js        # Picks the installer for the visitor's OS / Mac chip
+└── guide/
+    ├── index.html            # Usage guide → https://connect.testinator.ai/guide/
+    └── assets/images/        # Guide screenshots
+```
+
+- Pages serves `main`, folder `/docs`, as-is (plain HTML, no build step). A merge to
+  `main` that changes `docs/` is live in a minute or two.
+- A change that touches only `docs/` (or `tests/site/`) runs the Site check
+  (`npm run test:site`) and skips the app build; it never produces an app release.
+- `docs/` is excluded from the packaged app (`electron-builder.yml`).
+- `dev-docs/` holds developer notes — not published.
+- Editing with an AI agent: `.claude/rules/docs-site.md` (how the site is set up and
+  how to contribute) and `.claude/skills/docs-editing/` (how to work with a
+  non-developer) are picked up by Claude Code automatically.
+
+---
+
 ## Prerequisites
 
 | Tool | Purpose | Notes |

@@ -274,7 +274,7 @@ function registerIpcHandlers(): void {
 
 function registerUpdaterIpc(updater: Updater): void {
   ipcMain.handle(IPC_TO_MAIN.UPDATE_GET_STATE, () => updater.getState())
-  ipcMain.handle(IPC_TO_MAIN.UPDATE_CHECK, () => updater.checkNow())
+  ipcMain.handle(IPC_TO_MAIN.UPDATE_CHECK, () => updater.checkNow(true))
   ipcMain.handle(IPC_TO_MAIN.UPDATE_INSTALL, () => updater.install())
 }
 
