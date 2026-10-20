@@ -4,7 +4,7 @@ import { autoUpdater } from 'electron-updater'
 import { IPC_TO_RENDERER } from '../../shared/ipc-types'
 import type { InstallDecision, UpdateState } from '../../shared/ipc-types'
 import type { Logger } from '../service/logger'
-import { CHECK_INTERVAL_MS, canInstallNow, isUpdaterEnabled } from './policy'
+import { CHECK_INTERVAL_MS, canInstallNow, isUpdaterEnabled, upToDateMessage } from './policy'
 import { INITIAL_UPDATE_STATE, reduceUpdateState } from './update-state'
 import type { UpdaterEvent } from './update-state'
 
@@ -16,7 +16,7 @@ export interface UpdaterDeps {
 
 export interface Updater {
   getState: () => UpdateState
-  checkNow: () => Promise<void>
+  checkNow: (manual?: boolean) => Promise<void>
   install: () => InstallDecision
 }
 
@@ -36,8 +36,12 @@ export function createUpdater(deps: UpdaterDeps): Updater {
     if (win && !win.isDestroyed()) win.webContents.send(IPC_TO_RENDERER.UPDATE_STATE, state)
   }
 
-  const checkNow = async (): Promise<void> => {
+  // Only a check the user started logs "Up to date"; background checks stay quiet.
+  let manualCheck = false
+
+  const checkNow = async (manual = false): Promise<void> => {
     if (!enabled) return
+    manualCheck = manual
     try {
       await autoUpdater.checkForUpdates()
     } catch (e) {
@@ -48,9 +52,9 @@ export function createUpdater(deps: UpdaterDeps): Updater {
   if (enabled) {
     autoUpdater.autoDownload = true
     autoUpdater.autoInstallOnAppQuit = true
-    // Route electron-updater's own logs into the app log.
+    // Only electron-updater's warnings and errors reach the app log; its info lines confuse users.
     autoUpdater.logger = {
-      info: (m) => deps.logger.info(`[updater] ${String(m)}`),
+      info: () => {},
       warn: (m) => deps.logger.warning(`[updater] ${String(m)}`),
       error: (m) => deps.logger.error(`[updater] ${String(m)}`),
     }
@@ -60,7 +64,11 @@ export function createUpdater(deps: UpdaterDeps): Updater {
       deps.logger.info(`Update ${info.version} available — downloading in the background`)
       apply({ type: 'available', version: info.version })
     })
-    autoUpdater.on('update-not-available', () => apply({ type: 'not-available' }))
+    autoUpdater.on('update-not-available', () => {
+      if (manualCheck) deps.logger.info(upToDateMessage(app.getVersion()))
+      manualCheck = false
+      apply({ type: 'not-available' })
+    })
     autoUpdater.on('download-progress', (progress) => apply({ type: 'progress', percent: progress.percent }))
     autoUpdater.on('update-downloaded', (info) => {
       deps.logger.success(`Update ${info.version} downloaded — restart to install`)

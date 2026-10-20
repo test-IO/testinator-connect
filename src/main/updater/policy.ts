@@ -17,6 +17,10 @@ export function isUpdaterEnabled(env: UpdaterEnvironment): boolean {
   return false
 }
 
+export function upToDateMessage(version: string): string {
+  return `Up to date (${version})`
+}
+
 export function canInstallNow(activeSessions: number): InstallDecision {
   if (activeSessions === 0) return { ok: true }
   const subject = activeSessions === 1 ? '1 test session is' : `${activeSessions} test sessions are`

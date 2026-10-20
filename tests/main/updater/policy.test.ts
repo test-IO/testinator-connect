@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHECK_INTERVAL_MS, canInstallNow, isUpdaterEnabled } from '../../../src/main/updater/policy'
+import { CHECK_INTERVAL_MS, canInstallNow, isUpdaterEnabled, upToDateMessage } from '../../../src/main/updater/policy'
 
 describe('isUpdaterEnabled', () => {
   const packagedWindows = { isPackaged: true, platform: 'win32' as const, macSigned: false, autoUpdateEnabled: true }
@@ -51,5 +51,11 @@ describe('canInstallNow', () => {
 describe('CHECK_INTERVAL_MS', () => {
   it('re-checks every four hours', () => {
     expect(CHECK_INTERVAL_MS).toBe(4 * 60 * 60 * 1000)
+  })
+})
+
+describe('upToDateMessage', () => {
+  it('names the installed version, like the indicator label', () => {
+    expect(upToDateMessage('0.1.0')).toBe('Up to date (0.1.0)')
   })
 })
