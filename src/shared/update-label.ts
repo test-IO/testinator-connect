@@ -18,3 +18,8 @@ export function updateLabel(state: UpdateState): string {
       return 'Update check failed'
   }
 }
+
+// The sidebar only shows an update that is on its way; checks and errors live in Config.
+export function isUpdateIncoming(state: UpdateState): boolean {
+  return state.status === 'downloading' || state.status === 'downloaded'
+}

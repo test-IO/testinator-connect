@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { updateLabel } from '../../src/shared/update-label'
+import { isUpdateIncoming, updateLabel } from '../../src/shared/update-label'
 
 describe('updateLabel', () => {
   it('shows nothing before the first check', () => {
@@ -29,5 +29,15 @@ describe('updateLabel', () => {
   it('covers checking and up-to-date', () => {
     expect(updateLabel({ status: 'checking' })).toBe('Checking for updates…')
     expect(updateLabel({ status: 'up-to-date' })).toBe('Up to date')
+  })
+})
+
+describe('isUpdateIncoming', () => {
+  it('is true only while an update downloads or waits for a restart', () => {
+    expect(isUpdateIncoming({ status: 'downloading', version: '0.2.0' })).toBe(true)
+    expect(isUpdateIncoming({ status: 'downloaded', version: '0.2.0' })).toBe(true)
+    for (const status of ['idle', 'disabled', 'checking', 'up-to-date', 'error'] as const) {
+      expect(isUpdateIncoming({ status })).toBe(false)
+    }
   })
 })
