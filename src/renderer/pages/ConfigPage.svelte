@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { AppConfig } from '../../shared/ipc-types'
-  import { deepLinkPrefill, postConnectNavigate, showConnectConfirmation, status, serviceError } from '../lib/ipc.svelte'
+  import { appVersion, deepLinkPrefill, postConnectNavigate, showConnectConfirmation, status, serviceError, update } from '../lib/ipc.svelte'
+  import { updateLabel } from '../../shared/update-label'
 
   // ── connection state ─────────────────────────────────────────────────────────
   let deploymentUrl = $state('')
@@ -262,6 +263,13 @@
     } finally { installing = false }
   }
 
+  // ── updates ──────────────────────────────────────────────────────────────────
+  const canCheckForUpdates = $derived(['idle', 'up-to-date', 'error'].includes(update.status))
+
+  function checkForUpdates() {
+    void window.electronAPI.checkForUpdates()
+  }
+
   function toggleCap(cap: string) {
     if (pwCaps.includes(cap)) pwCaps = pwCaps.filter(c => c !== cap)
     else pwCaps = [...pwCaps, cap]
@@ -459,6 +467,17 @@
       {/if}
 
     </section>
+
+    <!-- ── Updates ────────────────────────────────────────────────────────── -->
+    <section>
+      <h2>Updates</h2>
+      <div class="pw-row">
+        <button class="install-btn" onclick={checkForUpdates} disabled={!canCheckForUpdates}>Check for updates</button>
+        <span class="update-status" class:fail={update.status === 'error'} title={update.message ?? ''}>
+          Version {appVersion.value}{update.status === 'idle' ? '' : ` · ${updateLabel(update)}`}
+        </span>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -541,6 +560,9 @@
     padding: 10px; font-family: monospace; font-size: 11px; color: #94a3b8;
     max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin: 0;
   }
+
+  .update-status { font-size: 12px; color: #94a3b8; padding: 8px 0; }
+  .update-status.fail { color: #f87171; }
 
   .caps-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .cap-chip {
