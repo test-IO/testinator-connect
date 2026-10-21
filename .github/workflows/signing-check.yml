@@ -1,6 +1,6 @@
 name: Signing check
 
-# Temporary E2E diagnostics: prints only public certificate details, never keys or passwords.
+# Temporary E2E diagnostics: prints only public certificate details, never keys or passwords (rerun 2026-10-21).
 on:
   push:
     branches: [e2e/auto-update]
