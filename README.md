@@ -261,18 +261,14 @@ Both need Accessibility and Screen Recording permissions. Enable one at a time.
 
 ## CI/CD — Automated builds
 
-The GitHub Actions workflow at [`.github/workflows/build.yml`](.github/workflows/build.yml) automatically builds and packages the app on every push to `main`, on pull requests, and on version tags (`v*.*.*`).
+Two GitHub Actions workflows build the app:
 
-| Trigger | macOS job | Windows job |
-|---------|-----------|-------------|
-| Push to `main` | DMG (arm64 + x64) | NSIS installer (x64) |
-| Pull request | DMG (arm64 + x64) | NSIS installer (x64) |
-| Tag `v*.*.*` | DMG + draft GitHub Release | Installer + draft GitHub Release |
-| Manual dispatch | DMG | Installer |
+| Workflow | Runs on | Does |
+|----------|---------|------|
+| [`build.yml`](.github/workflows/build.yml) | every push and every pull request into `main` (skipped when only `docs/`, `dev-docs/`, `tests/site/` or `.claude/` change) | tests, then builds unsigned macOS (DMG + ZIP, arm64 + x64) and Windows (NSIS, x64) packages to check that the app still packages; nothing is published |
+| [`release.yml`](.github/workflows/release.yml) | push to `main` | releases only when `version` in `package.json` is new: tests, builds the signed and notarized macOS and the Windows installers, publishes a GitHub Release that becomes `releases/latest` (what running apps update to) |
 
-Built artifacts are uploaded to each workflow run (Actions → select run → Artifacts).
-
-Code signing is automatic when the [secrets below](#code-signing-setup) are configured. If the secrets are absent (e.g. fork PRs), the workflow builds unsigned packages without failing.
+How to cut a release, version rules and signing: [RELEASING.md](RELEASING.md).
 
 ---
 
@@ -286,7 +282,7 @@ Run on a Mac:
 npm run dist:mac
 ```
 
-Output: `dist/Agentic QA - connect-1.0.0-arm64.dmg` and `dist/Agentic QA - connect-1.0.0.dmg`
+Output: `dist/Agentic-QA-Connect-mac-arm64.dmg` and `dist/Agentic-QA-Connect-mac-x64.dmg`, plus the matching `.zip` files the updater uses
 
 ### Windows (produces `.exe` installer)
 
@@ -296,7 +292,7 @@ Run on Windows:
 npm run dist:win
 ```
 
-Output: `dist/Agentic QA - connect Setup 1.0.0.exe` (NSIS installer with optional install directory selection)
+Output: `dist/Agentic-QA-Connect-Setup-win-x64.exe` (NSIS installer with optional install directory selection)
 
 ### Build only (no packaging)
 
