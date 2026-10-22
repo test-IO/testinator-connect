@@ -2,11 +2,17 @@
   import { update } from '../lib/ipc.svelte'
   import { isUpdateIncoming, updateLabel } from '../../shared/update-label'
 
+  const INSTALL_NOTE_MS = 10_000
+
   let installNote: string | null = $state(null)
+  let noteTimer: ReturnType<typeof setTimeout> | undefined
 
   async function install(): Promise<void> {
     const decision = await window.electronAPI.installUpdate()
+    clearTimeout(noteTimer)
     installNote = decision.ok ? null : decision.reason
+    // The refusal reason (e.g. a running session) goes stale, so the note fades out.
+    if (installNote) noteTimer = setTimeout(() => (installNote = null), INSTALL_NOTE_MS)
   }
 </script>
 
