@@ -47,6 +47,7 @@ extraResources:
 
 mac:
   icon: images/macos/icon.icns
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
   artifactName: Agentic-QA-Connect-mac-${arch}.${ext}
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
@@ -78,6 +79,7 @@ linux:
   icon: images/linux/icons
 
 nsis:
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
   artifactName: Agentic-QA-Connect-Setup-win-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true

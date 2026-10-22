@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectOs, pickAssets } from '../../docs/assets/js/download.js'
+import { DOWNLOADS, detectOs } from '../../docs/assets/js/download.js'
 
 const WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15'
@@ -17,36 +17,11 @@ describe('detectOs', () => {
   it('Linux is other', () => expect(detectOs({ userAgent: LINUX, platform: 'Linux x86_64' })).toBe('other'))
 })
 
-const a = (name: string) => ({ name, browser_download_url: `https://x/${name}` })
-
-describe('pickAssets', () => {
-  it('new naming scheme', () => {
-    const r = pickAssets([
-      a('Agentic-QA-Connect-mac-arm64.dmg'), a('Agentic-QA-Connect-mac-x64.dmg'),
-      a('Agentic-QA-Connect-mac-arm64.zip'), a('Agentic-QA-Connect-Setup-win-x64.exe'),
-      a('Agentic-QA-Connect-Setup-win-x64.exe.blockmap'), a('latest.yml'),
-    ])
-    expect(r).toEqual({
-      windows: 'https://x/Agentic-QA-Connect-Setup-win-x64.exe',
-      macArm: 'https://x/Agentic-QA-Connect-mac-arm64.dmg',
-      macIntel: 'https://x/Agentic-QA-Connect-mac-x64.dmg',
-    })
-  })
-  it('old naming scheme (arch-less dmg is Intel)', () => {
-    const r = pickAssets([
-      a('Agentic-QA---connect-0.0.1-abc-arm64.dmg'), a('Agentic-QA---connect-0.0.1-abc.dmg'),
-      a('Agentic-QA---connect-Setup-0.0.1-abc.exe'), a('Agentic-QA---connect-0.0.1-abc.dmg.blockmap'),
-    ])
-    expect(r.windows).toBe('https://x/Agentic-QA---connect-Setup-0.0.1-abc.exe')
-    expect(r.macArm).toBe('https://x/Agentic-QA---connect-0.0.1-abc-arm64.dmg')
-    expect(r.macIntel).toBe('https://x/Agentic-QA---connect-0.0.1-abc.dmg')
-  })
-  it('missing assets give null', () => {
-    expect(pickAssets([])).toEqual({ windows: null, macArm: null, macIntel: null })
-    expect(pickAssets(undefined)).toEqual({ windows: null, macArm: null, macIntel: null })
-  })
-  it('ignores zip, blockmap, yml', () => {
-    expect(pickAssets([a('x.zip'), a('x.exe.blockmap'), a('x.dmg.blockmap'), a('latest-mac.yml')]))
-      .toEqual({ windows: null, macArm: null, macIntel: null })
-  })
+describe('DOWNLOADS', () => {
+  it('links to the stable installer names of the latest release', () =>
+    expect(DOWNLOADS).toEqual({
+      windows: 'https://github.com/test-IO/testinator-connect/releases/latest/download/Agentic-QA-Connect-Setup-win-x64.exe',
+      macArm: 'https://github.com/test-IO/testinator-connect/releases/latest/download/Agentic-QA-Connect-mac-arm64.dmg',
+      macIntel: 'https://github.com/test-IO/testinator-connect/releases/latest/download/Agentic-QA-Connect-mac-x64.dmg',
+    }))
 })
