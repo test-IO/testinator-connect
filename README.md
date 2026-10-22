@@ -322,8 +322,8 @@ Code signing is handled by electron-builder via two environment variables that C
 
 | Environment variable | Secret | Description |
 |---------------------|--------|-------------|
-| `CSC_LINK` | `mac_certs` / `windows_certs` | Base64-encoded certificate (.p12 / .pfx) |
-| `CSC_KEY_PASSWORD` | `mac_certs_password` / `windows_certs_password` | Password for the certificate |
+| `CSC_LINK` | `CSC_LINK` (macOS) / `windows_certs` (Windows, not wired yet) | Base64-encoded certificate (.p12 / .pfx) |
+| `CSC_KEY_PASSWORD` | `CSC_KEY_PASSWORD` (macOS) / `windows_certs_password` (Windows, not wired yet) | Password for the certificate |
 
 Add secrets in your GitHub repository: **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -339,10 +339,10 @@ Requires an [Apple Developer Program](https://developer.apple.com/programs/) mem
    ```bash
    base64 -i certificate.p12 | pbcopy   # copies to clipboard on macOS
    ```
-6. Add GitHub secret **`mac_certs`**: paste the base64 string.
-7. Add GitHub secret **`mac_certs_password`**: the password you set in step 4.
+6. Add GitHub secret **`CSC_LINK`**: paste the base64 string.
+7. Add GitHub secret **`CSC_KEY_PASSWORD`**: the password you set in step 4.
 
-> **Notarization:** The current config has `notarize: false` in `electron-builder.yml`. Apple requires notarization for Gatekeeper acceptance on macOS 10.15+. To enable it, set `notarize: true` and add three more secrets: `APPLE_ID` (your Apple ID email), `APPLE_APP_PASSWORD` (an [app-specific password](https://support.apple.com/en-us/102654)), and `APPLE_TEAM_ID` (your 10-character Team ID from developer.apple.com).
+> **Notarization:** macOS release builds are signed and notarized (`notarize: true` in `electron-builder.yml`); the release workflow also needs `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`. Secrets, log checks and the `MAC_SIGNING_ENABLED` switch: [RELEASING.md](RELEASING.md#macos-signing).
 
 ### Windows — Code signing certificate
 
@@ -429,30 +429,6 @@ When a server config uses `command: "python"`, `"python3"`, or `"uv"`, the app a
 3. Subsequent launches are instant.
 
 The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform binaries are stored in `resources/` and copied into the app bundle by electron-builder via `extraResources`.
-
----
-
-## FAQ
-
-### macOS says "Apple could not verify this app is free of malware" — how do I open it?
-
-Release builds of this app are currently **not code-signed or notarized** (see [Code signing setup](#code-signing-setup)), so macOS Gatekeeper blocks it by default when downloaded from the internet. This does not mean the app is unsafe — it just hasn't gone through Apple's paid notarization process. To open it anyway:
-
-**Option A — Right-click to open (recommended, GUI only)**
-
-1. In Finder, right-click (or Control-click) `Agentic QA - connect.app`
-2. Choose **Open** from the context menu
-3. Click **Open** again in the dialog that appears
-
-This bypasses Gatekeeper for that specific app without disabling any system-wide protection. On recent macOS versions, the first right-click → Open may just dismiss the original warning — repeat right-click → Open once more to get a dialog with a real **Open** button.
-
-**Option B — Terminal (clears the quarantine attribute)**
-
-```bash
-xattr -cr "/Applications/Agentic QA - connect.app"
-```
-
-Run this after moving the app to `/Applications`, then launch normally.
 
 ---
 
