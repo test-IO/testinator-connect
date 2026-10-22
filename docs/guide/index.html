@@ -849,6 +849,27 @@
             and run it.
           </p>
 
+          <h3>Windows: allow the installer to run</h3>
+          <p>
+            The Windows installer isn't code-signed yet, so Windows SmartScreen is
+            likely to stop it with <em>"Windows protected your PC"</em>. Click
+            <strong>More info</strong>, then <strong>Run anyway</strong>.
+          </p>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/windows-smartscreen.png"
+              alt="Windows SmartScreen prompt Windows protected your PC, with the More info link highlighted"
+            />
+            <figcaption>SmartScreen stops the installer because it isn't signed yet: click <strong>More info</strong>.</figcaption>
+          </figure>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/windows-smartscreen-run-anyway.png"
+              alt="The same SmartScreen prompt after More info: the installer's file name, Unknown publisher, and the highlighted Run anyway button"
+            />
+            <figcaption>The prompt now names the installer: click <strong>Run anyway</strong>.</figcaption>
+          </figure>
+
           <h3>Windows: run the installer</h3>
           <ol>
             <li>
@@ -1164,23 +1185,25 @@
         <h2>Updates</h2>
         <p>
           The app updates itself. It checks for a new version when it starts and
-          every few hours, and downloads it in the background while you keep
-          working. The current version is shown at the bottom of the app's sidebar;
-          above it, the app shows what the updater is doing:
+          every few hours, and downloads it in the background while you keep working.
         </p>
         <ul>
-          <li><strong>Checking for updates…</strong> / <strong>Up to date</strong> — nothing to do.</li>
-          <li><strong>Downloading &lt;version&gt; · NN%</strong> — the new version is on its way.</li>
           <li>
-            <strong>Version &lt;version&gt; is ready</strong> with a
+            While a new version downloads, the sidebar shows
+            <strong>Downloading &lt;version&gt; · NN%</strong>.
+          </li>
+          <li>
+            When it's ready, the sidebar shows
+            <strong>Version &lt;version&gt; is ready</strong> and a
             <strong>Restart to update</strong> button — click it to install now; the
             app restarts on the new version. If you don't, the update installs the
             next time you quit the app.
           </li>
           <li>
-            <strong>Update check failed</strong> — usually no network; hover it for
-            the reason and click <strong>Check again</strong>. A version that was
-            already downloaded stays ready.
+            <strong>Config → Updates</strong> shows the installed version and the
+            last check, and has <strong>Check for updates</strong> to check right
+            away. If a check fails (usually no network), the status turns red —
+            hover it for the reason and try again later.
           </li>
         </ul>
         <div class="callout">
