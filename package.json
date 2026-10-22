@@ -10,7 +10,8 @@
     "pack": "npm run build && electron-builder --publish never",
     "dist:mac": "npm run build && electron-builder --publish never --mac",
     "dist:mac:signed": "dotenv -e .env.local -- npm run dist:mac",
-    "dist:win": "npm run build && electron-builder --publish never --win"
+    "dist:win": "npm run build && electron-builder --publish never --win",
+    "dist:win:unsigned": "npm run build && electron-builder --publish never --win --config.win.signtoolOptions=null"
   },
   "dependencies": {
     "@airbrake/browser": "^2.1.9",

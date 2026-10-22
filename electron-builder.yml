@@ -59,6 +59,12 @@ mac:
 
 win:
   icon: images/windows/icon.ico
+  # Sectigo OV cert lives on a SafeNet eToken; signtool picks it from the Windows cert store
+  signtoolOptions:
+    certificateSubjectName: test IO GmbH
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://timestamp.sectigo.com
   target:
     - target: nsis
       arch:
