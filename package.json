@@ -12,8 +12,8 @@
     "pack": "npm run build && electron-builder --publish never",
     "dist:mac": "npm run build && electron-builder --publish never --mac",
     "dist:mac:signed": "dotenv -e .env.local -- npm run dist:mac",
-    "dist:win": "npm run build && electron-builder --publish never --win",
-    "dist:win:unsigned": "npm run build && electron-builder --publish never --win --config.win.signtoolOptions=null",
+    "dist:win": "npm run build && electron-builder --publish never --win --config electron-builder.win-signed.yml",
+    "dist:win:unsigned": "npm run build && electron-builder --publish never --win",
     "release:win": "powershell -ExecutionPolicy Bypass -File scripts/release-windows.ps1"
   },
   "dependencies": {

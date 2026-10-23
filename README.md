@@ -42,6 +42,7 @@ The Electron main process owns the Socket.IO connection and all MCP client logic
 testinator-connect/
 ├── electron.vite.config.ts      # Vite config for main / preload / renderer
 ├── electron-builder.yml         # Packaging config (DMG + NSIS)
+├── electron-builder.win-signed.yml  # Adds Windows signing (USB token)
 ├── package.json
 ├── tsconfig.json
 ├── tsconfig.node.json           # Main process TS config
