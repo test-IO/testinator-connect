@@ -261,18 +261,14 @@ Both need Accessibility and Screen Recording permissions. Enable one at a time.
 
 ## CI/CD — Automated builds
 
-The GitHub Actions workflow at [`.github/workflows/build.yml`](.github/workflows/build.yml) automatically builds and packages the app on every push to `main`, on pull requests, and on version tags (`v*.*.*`).
+Two GitHub Actions workflows build the app:
 
-| Trigger | macOS job | Windows job |
-|---------|-----------|-------------|
-| Push to `main` | DMG (arm64 + x64) | NSIS installer (x64) |
-| Pull request | DMG (arm64 + x64) | NSIS installer (x64) |
-| Tag `v*.*.*` | DMG + draft GitHub Release | Installer + draft GitHub Release |
-| Manual dispatch | DMG | Installer |
+| Workflow | Runs on | Does |
+|----------|---------|------|
+| [`build.yml`](.github/workflows/build.yml) | every push and every pull request into `main` (skipped when only `docs/`, `dev-docs/`, `tests/site/` or `.claude/` change) | tests, then builds unsigned macOS (DMG + ZIP, arm64 + x64) and Windows (NSIS, x64) packages to check that the app still packages; nothing is published |
+| [`release.yml`](.github/workflows/release.yml) | push to `main` | releases only when `version` in `package.json` is new: tests, builds the signed and notarized macOS and the Windows installers, publishes a GitHub Release that becomes `releases/latest` (what running apps update to) |
 
-Built artifacts are uploaded to each workflow run (Actions → select run → Artifacts).
-
-Code signing is automatic when the [secrets below](#code-signing-setup) are configured. If the secrets are absent (e.g. fork PRs), the workflow builds unsigned packages without failing.
+How to cut a release, version rules and signing: [RELEASING.md](RELEASING.md).
 
 ---
 
@@ -286,7 +282,7 @@ Run on a Mac:
 npm run dist:mac
 ```
 
-Output: `dist/Agentic QA - connect-1.0.0-arm64.dmg` and `dist/Agentic QA - connect-1.0.0.dmg`
+Output: `dist/Agentic-QA-Connect-mac-arm64.dmg` and `dist/Agentic-QA-Connect-mac-x64.dmg`, plus the matching `.zip` files the updater uses
 
 ### Windows (produces `.exe` installer)
 
@@ -296,7 +292,7 @@ Run on Windows:
 npm run dist:win
 ```
 
-Output: `dist/Agentic QA - connect Setup 1.0.0.exe` (NSIS installer with optional install directory selection)
+Output: `dist/Agentic-QA-Connect-Setup-win-x64.exe` (NSIS installer with optional install directory selection)
 
 ### Build only (no packaging)
 
@@ -322,8 +318,8 @@ Code signing is handled by electron-builder via two environment variables that C
 
 | Environment variable | Secret | Description |
 |---------------------|--------|-------------|
-| `CSC_LINK` | `mac_certs` / `windows_certs` | Base64-encoded certificate (.p12 / .pfx) |
-| `CSC_KEY_PASSWORD` | `mac_certs_password` / `windows_certs_password` | Password for the certificate |
+| `CSC_LINK` | `CSC_LINK` (macOS) / `windows_certs` (Windows, not wired yet) | Base64-encoded certificate (.p12 / .pfx) |
+| `CSC_KEY_PASSWORD` | `CSC_KEY_PASSWORD` (macOS) / `windows_certs_password` (Windows, not wired yet) | Password for the certificate |
 
 Add secrets in your GitHub repository: **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -339,10 +335,10 @@ Requires an [Apple Developer Program](https://developer.apple.com/programs/) mem
    ```bash
    base64 -i certificate.p12 | pbcopy   # copies to clipboard on macOS
    ```
-6. Add GitHub secret **`mac_certs`**: paste the base64 string.
-7. Add GitHub secret **`mac_certs_password`**: the password you set in step 4.
+6. Add GitHub secret **`CSC_LINK`**: paste the base64 string.
+7. Add GitHub secret **`CSC_KEY_PASSWORD`**: the password you set in step 4.
 
-> **Notarization:** The current config has `notarize: false` in `electron-builder.yml`. Apple requires notarization for Gatekeeper acceptance on macOS 10.15+. To enable it, set `notarize: true` and add three more secrets: `APPLE_ID` (your Apple ID email), `APPLE_APP_PASSWORD` (an [app-specific password](https://support.apple.com/en-us/102654)), and `APPLE_TEAM_ID` (your 10-character Team ID from developer.apple.com).
+> **Notarization:** macOS release builds are signed and notarized (`notarize: true` in `electron-builder.yml`); the release workflow also needs `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`. Secrets, log checks and the `MAC_SIGNING_ENABLED` switch: [RELEASING.md](RELEASING.md#macos-signing).
 
 ### Windows — Code signing certificate
 
@@ -429,30 +425,6 @@ When a server config uses `command: "python"`, `"python3"`, or `"uv"`, the app a
 3. Subsequent launches are instant.
 
 The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform binaries are stored in `resources/` and copied into the app bundle by electron-builder via `extraResources`.
-
----
-
-## FAQ
-
-### macOS says "Apple could not verify this app is free of malware" — how do I open it?
-
-Release builds of this app are currently **not code-signed or notarized** (see [Code signing setup](#code-signing-setup)), so macOS Gatekeeper blocks it by default when downloaded from the internet. This does not mean the app is unsafe — it just hasn't gone through Apple's paid notarization process. To open it anyway:
-
-**Option A — Right-click to open (recommended, GUI only)**
-
-1. In Finder, right-click (or Control-click) `Agentic QA - connect.app`
-2. Choose **Open** from the context menu
-3. Click **Open** again in the dialog that appears
-
-This bypasses Gatekeeper for that specific app without disabling any system-wide protection. On recent macOS versions, the first right-click → Open may just dismiss the original warning — repeat right-click → Open once more to get a dialog with a real **Open** button.
-
-**Option B — Terminal (clears the quarantine attribute)**
-
-```bash
-xattr -cr "/Applications/Agentic QA - connect.app"
-```
-
-Run this after moving the app to `/Applications`, then launch normally.
 
 ---
 
