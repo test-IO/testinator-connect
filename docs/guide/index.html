@@ -1,0 +1,1887 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, width=device-width">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Agentic QA Connect — Usage Guide</title>
+    <meta name="description" content="How to install Agentic QA Connect on Windows or macOS, connect it to your Agentic QA installation and run test sessions on your machine.">
+    <link rel="icon" type="image/png" href="../assets/images/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="../assets/images/favicon.svg">
+    <link rel="shortcut icon" href="../favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/images/apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://connect.testinator.ai/guide/">
+    <meta property="og:title" content="Agentic QA Connect — Usage Guide">
+    <meta property="og:description" content="How to install Agentic QA Connect on Windows or macOS, connect it to your Agentic QA installation and run test sessions on your machine.">
+    <meta property="og:image" content="https://connect.testinator.ai/assets/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Agentic QA, an EPAM product">
+    <meta name="twitter:card" content="summary_large_image">
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var os = null;
+        var test = null;
+        var tab = null;
+        var params = null;
+        try { params = new URLSearchParams(location.search); } catch (e) {}
+        if (params && (params.has("os") || params.has("test") || params.has("tab"))) {
+          os = params.get("os");
+          test = params.get("test");
+          tab = params.get("tab");
+        } else {
+          try {
+            os = localStorage.getItem("connect-guide-os");
+            test = localStorage.getItem("connect-guide-test");
+          } catch (e) {}
+        }
+        if (test !== "web" && test !== "mcp" && test !== "windows-app") test = "none";
+        if (test === "windows-app") os = "windows";
+        // No choice yet: follow the visitor's OS, macOS when it is not Windows.
+        if (os !== "windows" && os !== "mac") os = /Windows/i.test(navigator.userAgent) ? "windows" : "mac";
+        if (tab !== "install" && tab !== "setup") tab = params && params.has("test") ? "setup" : "install";
+        root.setAttribute("data-os", os);
+        root.setAttribute("data-test", test);
+        root.setAttribute("data-tab", tab);
+        root.setAttribute("data-connect", "auto");
+      })();
+    </script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      * { margin: 0; }
+
+      :root {
+        --bg: #ffffff;
+        --fg: #1f1a2e;
+        --muted: #5b6472;
+        --border: #e5e7eb;
+        --panel: #f9fafb;
+        --panel-border: #e5e7eb;
+        --accent: #2563eb;
+        --accent-fg: #ffffff;
+        --code-bg: #0f172a;
+        --code-fg: #e2e8f0;
+        --pill-on-bg: #2563eb;
+        --pill-on-fg: #ffffff;
+        --pill-off-bg: #f3f4f6;
+        --pill-off-fg: #6b7280;
+        --warn-bg: #fef9c3;
+        --warn-border: #facc15;
+        --warn-fg: #713f12;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0f17;
+          --fg: #e5e7eb;
+          --muted: #9aa3b2;
+          --border: #1f2937;
+          --panel: #111827;
+          --panel-border: #1f2937;
+          --accent: #3b82f6;
+          --accent-fg: #ffffff;
+          --code-bg: #0a0f1c;
+          --code-fg: #e2e8f0;
+          --pill-on-bg: #3b82f6;
+          --pill-on-fg: #ffffff;
+          --pill-off-bg: #1f2937;
+          --pill-off-fg: #9ca3af;
+          --warn-bg: #422006;
+          --warn-border: #a16207;
+          --warn-fg: #fde68a;
+        }
+      }
+
+      html { font-size: 16px; }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        padding: 0;
+      }
+
+      .wrap {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .content {
+        min-width: 0;
+        max-width: 960px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 2.5rem 2rem 5rem;
+      }
+
+      @media (max-width: 900px) {
+        .wrap {
+          display: block;
+        }
+        .content {
+          max-width: none;
+          padding: 1.5rem 1rem 4rem;
+        }
+      }
+
+      header.hero {
+        margin-bottom: 1.25rem;
+      }
+
+      header.hero p.kicker {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.35rem;
+      }
+
+      h1 {
+        font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      h2 {
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin-top: 2.25rem;
+        margin-bottom: 0.85rem;
+        letter-spacing: -0.005em;
+      }
+
+      h3 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-top: 1.4rem;
+        margin-bottom: 0.5rem;
+      }
+
+      p { margin-bottom: 0.85rem; }
+
+      a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+      }
+
+      ul, ol {
+        padding-left: 1.4rem;
+        margin-bottom: 0.85rem;
+      }
+
+      li { margin-bottom: 0.3rem; }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.92em;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+      }
+
+      pre {
+        background: var(--code-bg);
+        color: var(--code-fg);
+        border-radius: 8px;
+        padding: 1rem 1.1rem;
+        overflow-x: auto;
+        font-size: 0.88rem;
+        line-height: 1.55;
+        margin-bottom: 1rem;
+      }
+
+      pre code {
+        background: transparent;
+        border: none;
+        padding: 0;
+        color: inherit;
+        font-size: inherit;
+      }
+
+      .callout {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-left: 3px solid var(--accent);
+        border-radius: 6px;
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 1.1rem;
+        color: var(--fg);
+        font-size: 0.95rem;
+      }
+
+      .callout.warn {
+        background: var(--warn-bg);
+        border-color: var(--warn-border);
+        border-left-color: var(--warn-border);
+        color: var(--warn-fg);
+      }
+
+      .image-placeholder {
+        background: var(--panel);
+        border: 1px dashed var(--panel-border);
+        border-radius: 8px;
+        padding: 2.2rem 1rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin: 1rem 0 1.4rem;
+      }
+
+      .image-placeholder strong {
+        display: block;
+        color: var(--fg);
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .image-placeholder .meta {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.78rem;
+        opacity: 0.75;
+        margin-top: 0.4rem;
+      }
+
+      .guide-figure {
+        margin: 1rem 0 1.4rem;
+      }
+
+      .guide-figure img {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+        border-radius: 8px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+      }
+
+      .guide-figure.plain img {
+        border: none;
+        border-radius: 0;
+        background: none;
+      }
+
+      .guide-figure figcaption {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .step-grid {
+        display: grid;
+        gap: 1.4rem;
+        margin-top: 1rem;
+      }
+
+      .step {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 1.1rem 1.25rem;
+      }
+
+      .step h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+
+      .step .badge {
+        background: var(--accent);
+        color: var(--accent-fg);
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        letter-spacing: 0.02em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.93rem;
+        margin-bottom: 1.1rem;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 0.55rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      th {
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.82rem;
+        padding: 0.18rem 0.6rem;
+        border-radius: 999px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .pill.on {
+        background: var(--pill-on-bg);
+        color: var(--pill-on-fg);
+      }
+
+      .pill.off {
+        background: var(--pill-off-bg);
+        color: var(--pill-off-fg);
+        text-decoration: line-through;
+      }
+
+      .toc {
+        background: var(--panel);
+        border-right: 1px solid var(--panel-border);
+        padding: 1.75rem 1.1rem;
+        position: sticky;
+        top: 0;
+        align-self: start;
+        height: 100vh;
+        overflow-y: auto;
+      }
+
+      .toc h2 {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin: 0 0.75rem 0.85rem;
+      }
+
+      .toc ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .toc li { margin: 0; }
+
+      .toc a {
+        display: block;
+        padding: 0.5rem 0.75rem;
+        margin: 0.1rem 0;
+        border-left: 2px solid transparent;
+        color: var(--muted);
+        font-weight: 500;
+        text-decoration: none;
+        font-size: 0.88rem;
+        line-height: 1.3;
+        transition: color 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
+      }
+
+      .toc a:hover {
+        color: var(--fg);
+        background: rgba(127, 127, 127, 0.08);
+        border-left-color: var(--accent);
+        text-decoration: none;
+      }
+
+      .toc a.active {
+        color: var(--fg);
+        border-left-color: var(--accent);
+      }
+
+      .toc .group-label {
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        opacity: 0.7;
+        margin: 1rem 0.75rem 0.3rem;
+      }
+
+      @media (max-width: 900px) {
+        .toc {
+          position: static;
+          height: auto;
+          border-right: none;
+          border-bottom: 1px solid var(--panel-border);
+          padding: 1rem 1rem;
+        }
+      }
+
+      footer {
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      html[data-os="windows"] [data-os="mac"],
+      html[data-os="mac"] [data-os="windows"],
+      html[data-test="none"] [data-for-test]:not([data-for-test~="none"]),
+      html[data-test="web"] [data-for-test]:not([data-for-test~="web"]),
+      html[data-test="mcp"] [data-for-test]:not([data-for-test~="mcp"]),
+      html[data-test="windows-app"] [data-for-test]:not([data-for-test~="windows-app"]) {
+        display: none;
+      }
+
+      html[data-os="mac"] .path-card[data-test-choice="windows-app"] { display: none; }
+
+      .os-note {
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+      }
+
+      .tab-panel { counter-reset: step; }
+
+      details.fix {
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 0 1.1rem;
+        margin: 1rem 0 1.25rem;
+      }
+
+      details.fix > summary {
+        cursor: pointer;
+        font-weight: 600;
+        padding: 0.85rem 0;
+      }
+
+      details.fix[open] {
+        padding-bottom: 0.4rem;
+      }
+
+      details.fix[open] > summary {
+        border-bottom: 1px solid var(--panel-border);
+        margin-bottom: 1rem;
+      }
+
+      details.fix h3 { margin-top: 1.2rem; }
+
+      .step-section > h2::before {
+        counter-increment: step;
+        content: counter(step);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.75rem;
+        height: 1.75rem;
+        margin-right: 0.6rem;
+        border-radius: 999px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        font-size: 0.85rem;
+        font-weight: 600;
+        vertical-align: 0.1em;
+      }
+
+      .toc-steps { counter-reset: toc-step; }
+
+      .toc-steps li[data-step] > a::before {
+        counter-increment: toc-step;
+        content: counter(toc-step) ". ";
+      }
+
+      .toc-os {
+        margin: 0 0.75rem 0.25rem;
+      }
+
+      .toc-os .label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+
+      .toc .segmented { display: flex; }
+
+      .toc .segmented button { flex: 1; }
+
+      html[data-tab="install"] [data-tab-panel="setup"],
+      html[data-tab="setup"] [data-tab-panel="install"] {
+        display: none;
+      }
+
+      .tabs {
+        display: none;
+        gap: 0.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      html[data-tab] .tabs { display: flex; }
+
+      .tabs [role="tab"] {
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0.6rem 1rem;
+        margin-bottom: -1px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .tabs [role="tab"]:hover { color: var(--fg); }
+
+      .tabs [role="tab"][aria-selected="true"] {
+        color: var(--fg);
+        border-bottom-color: var(--accent);
+      }
+
+      .tab-panel > section:first-child > h2 { margin-top: 1.5rem; }
+
+      html[data-connect="auto"] [data-connect-panel="manual"],
+      html[data-connect="manual"] [data-connect-panel="auto"] {
+        display: none;
+      }
+
+      .subtabs-box {
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 0 1.1rem 0.25rem;
+        margin: 1.25rem 0 1.5rem;
+      }
+
+      .subtabs {
+        display: none;
+        gap: 0.25rem;
+        border-bottom: 1px solid var(--border);
+        margin: 0 -1.1rem 1rem;
+        padding: 0 0.6rem;
+      }
+
+      html[data-connect] .subtabs { display: flex; }
+
+      .subtabs [role="tab"] {
+        font: inherit;
+        font-size: 0.92rem;
+        font-weight: 600;
+        padding: 0.6rem 0.8rem;
+        margin-bottom: -1px;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .subtabs [role="tab"]:hover { color: var(--fg); }
+
+      .subtabs [role="tab"][aria-selected="true"] {
+        color: var(--fg);
+        border-bottom-color: var(--accent);
+      }
+
+      .subtab-lead { color: var(--muted); }
+
+      #what-to-test .picker-question { margin-top: 1.5rem; }
+
+      .setup-hint {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .tab-next {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 2rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .next-button {
+        font: inherit;
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 0.55rem 1.1rem;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        cursor: pointer;
+      }
+
+      .next-button:hover { filter: brightness(1.08); }
+
+      html[data-tab="install"] .toc .group-label[data-toc-group="install"],
+      html[data-tab="setup"] .toc .group-label[data-toc-group="setup"] {
+        color: var(--accent);
+        opacity: 1;
+      }
+
+      .picker-question {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin: 1.1rem 0 0.5rem;
+      }
+
+      .segmented {
+        display: inline-flex;
+        border: 1px solid var(--panel-border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      .segmented button {
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 0.4rem 1rem;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .segmented button + button {
+        border-left: 1px solid var(--panel-border);
+      }
+
+      .segmented button[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+
+      .path-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .path-card {
+        font: inherit;
+        text-align: left;
+        color: var(--fg);
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        transition: border-color 0.12s ease, box-shadow 0.12s ease;
+      }
+
+      .path-card:hover { border-color: var(--accent); }
+
+      .path-card[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .path-card-title {
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .path-card[aria-pressed="true"] .path-card-title::after {
+        content: "\00a0\2713";
+        color: var(--accent);
+      }
+
+      .path-card-meta {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .path-card-text {
+        font-size: 0.88rem;
+        color: var(--muted);
+        line-height: 1.45;
+        margin-top: 0.25rem;
+      }
+
+      .segmented button:focus-visible,
+      .tabs [role="tab"]:focus-visible,
+      .subtabs [role="tab"]:focus-visible,
+      .next-button:focus-visible,
+      .path-card:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .pair-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .pair-card {
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+      }
+
+      .pair-card h3 { margin-top: 0; }
+
+      .pair-card .guide-figure,
+      .pair-card .image-placeholder {
+        margin-bottom: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <nav class="toc" aria-label="Table of contents">
+        <div class="toc-os">
+          <span class="label" id="toc-os-label">Operating system</span>
+          <div class="segmented" role="group" aria-labelledby="toc-os-label">
+            <button type="button" data-os-choice="windows" aria-pressed="false">Windows</button>
+            <button type="button" data-os-choice="mac" aria-pressed="false">macOS</button>
+          </div>
+        </div>
+
+        <div class="group-label" data-toc-group="install">Installation</div>
+        <ol class="toc-steps">
+          <li><a href="#overview">What is what</a></li>
+          <li data-step><a href="#install">Install and launch the app</a></li>
+          <li data-step><a href="#connect">Connect it to your installation</a></li>
+          <li data-step><a href="#verify">Check that it is online</a></li>
+          <li><a href="#updates">Updates</a></li>
+          <li><a href="#install-troubleshooting">Troubleshooting</a></li>
+        </ol>
+
+        <div class="group-label" data-toc-group="setup">How to test?</div>
+        <ol class="toc-steps">
+          <li><a href="#what-to-test">What will you test?</a></li>
+          <li data-step data-for-test="web"><a href="#web-browser">Set up the browser</a></li>
+          <li data-step data-for-test="web"><a href="#web-run">Run a web session</a></li>
+          <li data-step data-for-test="mcp"><a href="#mcp-servers">Add your MCP servers</a></li>
+          <li data-step data-for-test="mcp"><a href="#mcp-run">Run a Desktop App session</a></li>
+          <li data-step data-for-test="windows-app"><a href="#windows-prepare">Prepare the machine</a></li>
+          <li data-step data-for-test="windows-app"><a href="#windows-server">Add the windows_mcp server</a></li>
+          <li data-step data-for-test="windows-app"><a href="#windows-test">Test the server</a></li>
+          <li data-step data-for-test="windows-app"><a href="#windows-product">Create a Desktop App Windows product</a></li>
+          <li data-step data-for-test="windows-app"><a href="#windows-run">Run a Windows session</a></li>
+          <li data-for-test="web mcp windows-app"><a href="#test-troubleshooting">Troubleshooting</a></li>
+        </ol>
+      </nav>
+
+      <main class="content">
+      <header class="hero">
+        <p class="kicker">User Guide</p>
+        <h1>Agentic QA Connect</h1>
+      </header>
+
+      <div class="tabs" role="tablist" aria-label="Guide">
+        <button type="button" role="tab" id="tab-install" aria-controls="panel-install" aria-selected="true" data-tab-choice="install">Installation</button>
+        <button type="button" role="tab" id="tab-setup" aria-controls="panel-setup" aria-selected="false" tabindex="-1" data-tab-choice="setup">How to test?</button>
+      </div>
+
+      <div id="panel-install" class="tab-panel" role="tabpanel" aria-labelledby="tab-install" data-tab-panel="install">
+
+      <section id="overview">
+        <h2>What is what</h2>
+        <p>Two things are involved, and this guide names them the same way throughout:</p>
+        <div class="pair-grid">
+          <div class="pair-card">
+            <h3>Agentic QA installation</h3>
+            <p>The web platform you open in the browser. You create test sessions and pair machines there.</p>
+            <figure class="guide-figure">
+              <img
+                src="assets/images/installation-test-sessions.png"
+                alt="The Agentic QA installation in the browser: the Test Sessions page with the New Test Session button"
+              />
+            </figure>
+          </div>
+          <div class="pair-card">
+            <h3>Agentic QA Connect app</h3>
+            <p>The desktop app you install on the machine the tests should run on.</p>
+            <figure class="guide-figure">
+              <img
+                src="assets/images/connect-dashboard.png"
+                alt="The Agentic QA Connect app: its Dashboard with the connection status, tool count and activity log"
+              />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="install" class="step-section">
+        <h2>Install and launch the app</h2>
+        <p>
+          Download the app from
+          <a href="https://connect.testinator.ai/">connect.testinator.ai</a> —
+          the page offers the build for your OS (and your Mac's chip) — install it
+          like any other desktop app, and launch it. Once installed, the app keeps
+          itself up to date (see <a href="#updates">Updates</a>).
+        </p>
+
+        <div data-os="windows">
+          <p class="os-note">Windows</p>
+          <p>
+            Download <code>Agentic-QA-Connect-Setup-win-x64.exe</code>
+            and run it.
+          </p>
+
+          <h3>Windows: allow the installer to run</h3>
+          <p>
+            The Windows installer isn't code-signed yet, so Windows SmartScreen is
+            likely to stop it with <em>"Windows protected your PC"</em>. Click
+            <strong>More info</strong>, then <strong>Run anyway</strong>.
+          </p>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/windows-smartscreen.png"
+              alt="Windows SmartScreen prompt Windows protected your PC, with the More info link highlighted"
+            />
+            <figcaption>SmartScreen stops the installer because it isn't signed yet: click <strong>More info</strong>.</figcaption>
+          </figure>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/windows-smartscreen-run-anyway.png"
+              alt="The same SmartScreen prompt after More info: the installer's file name, Unknown publisher, and the highlighted Run anyway button"
+            />
+            <figcaption>The prompt now names the installer: click <strong>Run anyway</strong>.</figcaption>
+          </figure>
+
+          <h3>Windows: run the installer</h3>
+          <ol>
+            <li>
+              <strong>Choose Installation Options</strong> — pick
+              <strong>Only for me</strong>. It needs no administrator rights,
+              while <strong>Anyone who uses this computer</strong> installs into
+              <code>Program Files</code> and asks for them.
+
+              <figure class="guide-figure">
+                <img
+                  src="assets/images/windows-installer-options.png"
+                  alt="Agentic QA - connect Setup, Choose Installation Options, with Only for me selected and highlighted"
+                />
+                <figcaption><strong>Only for me</strong> installs the app for your Windows account only.</figcaption>
+              </figure>
+            </li>
+            <li>
+              <strong>Choose Install Location</strong> — keep the suggested
+              folder or pick another one, then click <strong>Install</strong>.
+
+              <figure class="guide-figure">
+                <img
+                  src="assets/images/windows-installer-location.png"
+                  alt="Agentic QA - connect Setup, Choose Install Location, with the destination folder under AppData\Local\Programs and the Install button highlighted"
+                />
+                <figcaption>The suggested folder is under <code>AppData\Local\Programs</code> of your account.</figcaption>
+              </figure>
+            </li>
+            <li>
+              When setup is complete, leave <strong>Run Agentic QA - connect</strong>
+              ticked and click <strong>Finish</strong>.
+
+              <figure class="guide-figure">
+                <img
+                  src="assets/images/windows-installer-finish.png"
+                  alt="Completing Agentic QA - connect Setup, with Run Agentic QA - connect ticked and the Finish button highlighted"
+                />
+                <figcaption><strong>Finish</strong> closes the installer and starts the app.</figcaption>
+              </figure>
+            </li>
+          </ol>
+        </div>
+
+        <div data-os="mac">
+          <p class="os-note">macOS</p>
+          <p>
+            Download the <code>.dmg</code> for your Mac —
+            <code>Agentic-QA-Connect-mac-arm64.dmg</code> for Apple silicon,
+            <code>Agentic-QA-Connect-mac-x64.dmg</code> for Intel — and open it.
+          </p>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/connect-install-dmg.png"
+              alt="Agentic QA Connect installer window with the app icon and an Applications folder shortcut"
+            />
+            <figcaption>Drag the app into your Applications folder, then launch it.</figcaption>
+          </figure>
+
+        </div>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-dashboard.png"
+            alt="Agentic QA Connect dashboard showing 0 tools, 0 active sessions, Disconnected status, and a Start button"
+          />
+          <figcaption>On first launch the dashboard shows <strong>Disconnected</strong>; the next step connects it to your installation.</figcaption>
+        </figure>
+
+        <div class="callout warn">
+          The app has to keep running while you use it from the installation.
+          If you quit it, the machine shows as <strong>Offline</strong> on the
+          installation and any test session targeting it fails to start.
+        </div>
+      </section>
+
+      <section id="connect" class="step-section">
+        <h2>Connect it to your installation</h2>
+        <p>
+          Everything happens on one page of the installation: open the account
+          menu (your avatar, top right) → <strong>User Settings</strong> → the
+          <strong>Agentic QA Connect</strong> tab. Every user has it; the tab
+          appears once Agentic QA Connect is enabled on the installation. Its
+          <strong>Get the app ↗</strong> button opens the download page if the app
+          isn't installed yet. Connect the machine
+          <strong>automatically</strong> with one click, or
+          <strong>manually</strong> when the one-click link can't reach the app.
+        </p>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-account-menu.png"
+            srcset="assets/images/connect-account-menu.png 2x"
+            alt="The account menu under the avatar in the top-right corner of the installation, with User Settings highlighted"
+          />
+          <figcaption>Open the account menu under your avatar, then <strong>User Settings</strong>.</figcaption>
+        </figure>
+
+        <div class="subtabs-box">
+          <div class="subtabs" role="tablist" aria-label="How to connect">
+            <button type="button" role="tab" id="connect-tab-auto" aria-controls="connect-auto" aria-selected="true" data-connect-choice="auto">Automatic</button>
+            <button type="button" role="tab" id="connect-tab-manual" aria-controls="connect-manual" aria-selected="false" tabindex="-1" data-connect-choice="manual">Manual</button>
+          </div>
+
+          <div id="connect-auto" role="tabpanel" aria-labelledby="connect-tab-auto" data-connect-panel="auto">
+            <p class="subtab-lead">Recommended: one click in the installation, nothing to copy by hand.</p>
+            <ol>
+              <li>Make sure the app is installed and running on the machine you're sitting at, and open the installation in a browser on that same machine.</li>
+              <li>
+                Click <strong>Connect app</strong> next to the Deployment URL. The
+                browser asks whether it may hand the
+                <code>agentic-qa-connect://</code> link to the app — confirm, and the
+                app comes to the foreground.
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-settings-tab.png"
+                    alt="User Settings, Agentic QA Connect tab, with the Connect app button next to the Deployment URL highlighted"
+                  />
+                  <figcaption>User Settings → <strong>Agentic QA Connect</strong>: <strong>Connect app</strong> sits next to the Deployment URL.</figcaption>
+                </figure>
+
+                <figure class="guide-figure plain">
+                  <img
+                    src="assets/images/connect-browser-prompt.png"
+                    alt="Chrome asks whether the installation may open Agentic QA - connect, with the Open Agentic QA - connect button highlighted"
+                  />
+                  <figcaption>The browser asks first: click <strong>Open Agentic QA - connect</strong>.</figcaption>
+                </figure>
+              </li>
+              <li>
+                The app asks <em>"Connect this machine to &lt;your installation&gt;?"</em>.
+                Click <strong>Connect</strong>. Nothing is applied until you confirm —
+                a deep link can be triggered by any web page, so the app never
+                reconfigures itself silently.
+
+                <figure class="guide-figure plain" data-os="mac">
+                  <img
+                    src="assets/images/connect-app-confirm.png"
+                    alt="Agentic QA Connect asks to connect this machine to the installation and names the Deployment URL it will save, with the Connect button highlighted"
+                  />
+                  <figcaption>The app names the installation and the Deployment URL it is about to save.</figcaption>
+                </figure>
+                <figure class="guide-figure" data-os="windows">
+                  <img
+                    src="assets/images/connect-app-confirm-windows.png"
+                    alt="Agentic QA Connect on Windows asks to connect this machine to the installation and names the Deployment URL it will save, with the Connect option highlighted"
+                  />
+                  <figcaption>The app names the installation and the Deployment URL it is about to save. On Windows, <strong>Connect</strong> is the large option with an arrow.</figcaption>
+                </figure>
+              </li>
+            </ol>
+
+            <p>
+              That's it: the app fills in the Deployment URL, trades the one-time
+              code from the link for its own handshake token, saves the
+              configuration and starts connecting. Nothing is copied by hand.
+            </p>
+            <div class="callout">
+              The one-time code is valid for <strong>60 seconds</strong> and works
+              once. If you take longer, the app says <em>"The link has expired —
+              click 'Connect app' again."</em> — go back and click the button again.
+            </div>
+          </div>
+
+          <div id="connect-manual" role="tabpanel" aria-labelledby="connect-tab-manual" data-connect-panel="manual">
+            <p class="subtab-lead">Use this when the app runs on a different machine than the browser, or the one-click link doesn't reach it.</p>
+            <ol>
+              <li>
+                Copy the <strong>Deployment URL</strong> from the
+                <strong>Agentic QA Connect</strong> tab in User Settings and paste
+                it into the app under
+                <strong>Config → Connection → Deployment URL</strong>.
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-copy-deploy-url.png"
+                    alt="User Settings, Agentic QA Connect tab: the Deployment URL with the Copy button highlighted"
+                  />
+                  <figcaption>In the installation: <strong>Copy</strong> next to the Deployment URL.</figcaption>
+                </figure>
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-deploy-url-field.png"
+                    alt="Agentic QA Connect Config screen with the Deployment URL field highlighted and the Auth Token still empty"
+                  />
+                  <figcaption>In the app: paste it into <strong>Config → Connection → Deployment URL</strong>.</figcaption>
+                </figure>
+              </li>
+              <li>
+                Copy the <strong>Client ID</strong> from the top of the app's
+                Dashboard, paste it into <strong>Pair by Client ID</strong> on the
+                same tab and click <strong>Pair</strong>.
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-client-id.png"
+                    alt="Agentic QA Connect dashboard header with the Client ID highlighted next to the connection status"
+                  />
+                  <figcaption>The Client ID sits next to the status indicator — click it to copy.</figcaption>
+                </figure>
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-pair-by-id.png"
+                    alt="Pair by Client ID field in User Settings with the same Client ID pasted in and the Pair button highlighted"
+                  />
+                  <figcaption>Paste the same Client ID here and click <strong>Pair</strong>.</figcaption>
+                </figure>
+              </li>
+              <li>
+                A new row appears under <strong>Paired clients</strong> with its
+                handshake token already issued — click <strong>Copy</strong>.
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-paired-token.png"
+                    alt="A freshly paired client row in User Settings with its handshake token hidden and the Copy button highlighted"
+                  />
+                  <figcaption>Pairing issues the token right away. The machine stays <strong>Offline</strong> and unnamed until the app connects.</figcaption>
+                </figure>
+              </li>
+              <li>
+                Paste it into the app under
+                <strong>Config → Connection → Auth Token</strong> and click
+                <strong>Save</strong>.
+
+                <figure class="guide-figure">
+                  <img
+                    src="assets/images/connect-auth-token.png"
+                    alt="Agentic QA Connect Config screen with the Deployment URL filled in, the Auth Token field highlighted and the Save button highlighted"
+                  />
+                  <figcaption>Deployment URL and Auth Token are both required; <strong>Save</strong> is in the top-right corner.</figcaption>
+                </figure>
+              </li>
+              <li>Back on the Dashboard, click <strong>Start</strong>.</li>
+            </ol>
+
+            <figure class="guide-figure">
+              <img
+                src="assets/images/connect-pair-start.png"
+                alt="Agentic QA Connect dashboard status bar showing the Client ID and a highlighted Start button"
+              />
+              <figcaption>The status bar carries the Client ID (click to copy) and the <strong>Start</strong> button.</figcaption>
+            </figure>
+          </div>
+        </div>
+
+        <h3>About the handshake token</h3>
+        <p>
+          The token is what the installation checks when the app connects —
+          without a valid one the connection is refused, no matter what the
+          Deployment URL says. A few things worth knowing:
+        </p>
+        <ul>
+          <li>It is personal and per-machine, and it expires after <strong>one month</strong>; the paired row shows how long is left.</li>
+          <li><strong>Regenerate</strong> issues a new one and kills the old one immediately — paste the new value into the app.</li>
+          <li><strong>Revoke</strong> stops this machine connecting until you issue a new token.</li>
+          <li>
+            A machine belongs to exactly one user, so a handed-over laptop always
+            has a single owner and a single live token. To take over a machine
+            someone else paired, use <strong>Connect app</strong> on that machine:
+            pairing by Client ID is refused while the machine belongs to another
+            user.
+          </li>
+          <li>
+            Deleting a user's account removes their pairings and tokens: the
+            machines they paired stop connecting until someone pairs them again.
+          </li>
+        </ul>
+      </section>
+
+      <section id="verify" class="step-section">
+        <h2>Check that it is online</h2>
+        <p>
+          In the app, the status bar flips to <strong>Connected</strong> and
+          shows the Deployment URL it reached. On the installation, the row under
+          <strong>Paired clients</strong> shows a green
+          <strong>● Online</strong> badge. The badge is driven by a
+          heartbeat, so a machine that dies without disconnecting cleanly turns
+          <strong>○ Offline</strong> after about ten minutes.
+        </p>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-connected.png"
+            alt="Agentic QA Connect dashboard after connecting: Connected status with the Deployment URL, display name and Client ID, 29 tools discovered, and an activity log ending in Connected to Agentic QA connect-gateway"
+          />
+          <figcaption>After a successful connect the app discovers the tools of every configured MCP server, then connects to the installation. The activity log ends with <strong>Connected to Agentic QA connect-gateway</strong>.</figcaption>
+        </figure>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-paired-online.png"
+            alt="Paired clients list in User Settings: the machine now shows its display name and a highlighted Online badge"
+          />
+          <figcaption>On the installation the same row turns <strong>● Online</strong> and picks up the machine's display name.</figcaption>
+        </figure>
+        <p>
+          <strong>Display Name</strong> (Config → Connection) is what the
+          installation labels your machine with in the client dropdowns; leave it
+          empty and the app sends the machine's hostname.
+        </p>
+        <div class="callout">
+          Dropping the network doesn't need any action from you — the app keeps
+          retrying on its own and restores its running sessions when it gets
+          back. <strong>Interrupt</strong> stops the retry loop if you'd rather
+          it stopped.
+        </div>
+      </section>
+
+      <section id="updates">
+        <h2>Updates</h2>
+        <p>
+          The app updates itself. It checks for a new version when it starts and
+          every few hours, and downloads it in the background while you keep working.
+        </p>
+        <ul>
+          <li>
+            While a new version downloads, the sidebar shows
+            <strong>Downloading &lt;version&gt; · NN%</strong>.
+          </li>
+          <li>
+            When it's ready, the sidebar shows
+            <strong>Version &lt;version&gt; is ready</strong> and a
+            <strong>Restart to update</strong> button — click it to install now; the
+            app restarts on the new version. If you don't, the update installs the
+            next time you quit the app.
+          </li>
+          <li>
+            <strong>Config → Updates</strong> shows the installed version and the
+            last check, and has <strong>Check for updates</strong> to check right
+            away. If a check fails (usually no network), the status turns red —
+            hover it for the reason and try again later.
+          </li>
+        </ul>
+        <div class="callout">
+          <strong>Restart to update</strong> waits while a test session is running on
+          this machine — restarting would end it. Restart after the session finishes,
+          or just quit the app later: the update installs on quit.
+        </div>
+      </section>
+
+      <section id="install-troubleshooting">
+        <h2>Troubleshooting</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely cause</th>
+              <th>What to try</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>App sits on "Connecting…", log says <code>Cannot reach …</code></td>
+              <td>Wrong Deployment URL, the installation isn't reachable, or a self-signed certificate with SSL Verify on.</td>
+              <td>Re-check the URL against the Agentic QA Connect tab in User Settings; for a development installation turn <strong>SSL Verify</strong> off.</td>
+            </tr>
+            <tr>
+              <td>Connects, then drops immediately</td>
+              <td>The handshake token is missing, expired or revoked — the installation refuses the connection.</td>
+              <td><strong>Regenerate</strong> the token on the paired row and paste it into Config → Connection → Auth Token.</td>
+            </tr>
+            <tr>
+              <td>The app shows Connected, but the installation says Offline</td>
+              <td>The machine is paired to a different account, or the row you're looking at belongs to another Client ID.</td>
+              <td>Compare the Client ID in the app's status bar with the one on the paired row; re-pair if they differ.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-logs.png"
+            alt="Agentic QA Connect activity log showing MCP server discovery followed by a successful connection to the installation"
+          />
+          <figcaption>The Activity log on the Dashboard records server discovery, connection and tool-call events — start there when a run behaves oddly.</figcaption>
+        </figure>
+      </section>
+
+      <div class="tab-next">
+        <button type="button" class="next-button" data-tab-choice="setup">Next: How to test? →</button>
+      </div>
+      </div>
+
+      <div id="panel-setup" class="tab-panel" role="tabpanel" aria-labelledby="tab-setup" data-tab-panel="setup">
+
+      <section id="what-to-test" aria-labelledby="what-to-test-title">
+        <p class="picker-question" id="what-to-test-title">What will you test?</p>
+        <div class="path-cards" role="group" aria-labelledby="what-to-test-title">
+          <button type="button" class="path-card" data-test-choice="web" aria-pressed="false">
+            <span class="path-card-title">Website</span>
+            <span class="path-card-meta">Web product · Browser: Local Machine</span>
+            <span class="path-card-text">A web app, opened in a browser on your own machine.</span>
+          </button>
+          <button type="button" class="path-card" data-test-choice="mcp" aria-pressed="false">
+            <span class="path-card-title">MCP servers</span>
+            <span class="path-card-meta">Desktop App product</span>
+            <span class="path-card-text">Your own MCP servers: the agent calls their tools directly.</span>
+          </button>
+          <button type="button" class="path-card" data-test-choice="windows-app" aria-pressed="false">
+            <span class="path-card-title">Windows application</span>
+            <span class="path-card-meta">Desktop App Windows product · Windows only</span>
+            <span class="path-card-text">A native Windows app, driven through the <code>windows_mcp</code> server.</span>
+          </button>
+        </div>
+        <p class="setup-hint" data-for-test="none">Pick one, and its steps appear below.</p>
+        <p class="setup-hint" data-os="mac">
+          Testing a native Windows application needs the Connect app on a Windows
+          machine: switch the operating system to <strong>Windows</strong> in the sidebar.
+        </p>
+      </section>
+
+      <section id="web-browser" class="step-section" data-for-test="web">
+        <h2>Set up the browser</h2>
+        <p>
+          A fresh install already carries a built-in
+          <code>Playwright_MCP</code> server — that's the one
+          <strong>Local Machine</strong> web sessions drive, and you configure it
+          from <strong>Config → Playwright MCP</strong> (browser, capabilities,
+          headless, emulated device, viewport). Use the
+          <strong>Install</strong> button there once per browser: Playwright needs
+          its own browser binaries.
+        </p>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-playwright-install.png"
+            alt="Config, Playwright MCP section in the app: Chromium selected and marked Not installed, with the Install button highlighted"
+          />
+          <figcaption>Pick the browser and click <strong>Install</strong> once; the badge then reads <strong>Installed</strong>.</figcaption>
+        </figure>
+
+        <div class="callout warn">
+          <strong>Local Machine web sessions don't name a server.</strong> When
+          no server is requested, the app spawns every server marked
+          <strong>Stateful</strong> — so <code>Playwright_MCP</code> must stay
+          stateful for web sessions to get a browser.
+        </div>
+      </section>
+
+      <section id="web-run" class="step-section" data-for-test="web">
+        <h2>Run a web session</h2>
+        <p>
+          In the test-session form, under <strong>Where to Test</strong>, pick
+          <strong>Local Machine</strong> as the Browser. The
+          <strong>Connected client</strong> dropdown then lists your paired and
+          currently-online machines.
+        </p>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-web-picker.png"
+            alt="Test session form, Where to Test step, with Local Machine selected as the browser and a connected client chosen"
+          />
+          <figcaption>Browser → <strong>Local Machine</strong>, then pick the machine that should drive the browser.</figcaption>
+        </figure>
+
+        <div class="step-grid">
+          <div class="step">
+            <span class="badge">1</span>
+            <h3>Pick a client</h3>
+            <p>
+              If your machine isn't listed, it's offline — start the app there
+              and the dropdown updates by itself, no page reload needed.
+            </p>
+          </div>
+          <div class="step">
+            <span class="badge">2</span>
+            <h3>Run the session</h3>
+            <p>
+              Run checks the usual way. Playwright opens on the chosen machine;
+              you can watch the browser locally while the installation streams
+              steps and verdicts.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout">
+          Viewport and proxy pickers disappear when you choose Local Machine —
+          both come from your own <code>Playwright_MCP</code> configuration in
+          the app instead (Config → Playwright MCP).
+        </div>
+        <div class="callout">
+          A Local Machine session can't be scheduled, and a single check in it
+          can't be re-run or replayed. To repeat it, use <strong>Re-run</strong>
+          in the session header to start the whole session again.
+        </div>
+      </section>
+
+      <section id="mcp-servers" class="step-section" data-for-test="mcp">
+        <h2>Add your MCP servers</h2>
+        <p>
+          Your own servers live on the <strong>MCP Servers</strong> tab of the
+          app. Each card is one server:
+        </p>
+        <ul>
+          <li><strong>Name</strong> — what the server is called in the installation's pickers. Only letters, digits and <code>_</code> survive; anything else is rewritten.</li>
+          <li><strong>Type</strong> — <code>stdio</code> (a local process), <code>http</code> or <code>sse</code> (a URL).</li>
+          <li><strong>Command</strong> + <strong>Args</strong> for <code>stdio</code>; <strong>URL</strong> + <strong>Headers</strong> (JSON) for the other two.</li>
+          <li><strong>Stateful</strong> — keeps one live MCP connection per test session instead of reconnecting per call.</li>
+          <li><strong>Test</strong> — connects right there and reports how many tools it found, before you involve the installation.</li>
+        </ul>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-mcp-servers.png"
+            alt="Agentic QA Connect MCP Servers tab listing Playwright_MCP, filesystem, My API and Legacy servers with stdio/http/sse types, Stateful toggles, Test buttons and an Add Server button"
+          />
+          <figcaption>One card per server. <strong>+ Add Server</strong> creates an entry, <strong>Edit JSON</strong> opens the raw config, <strong>Save</strong> writes it.</figcaption>
+        </figure>
+
+        <p>
+          <strong>Edit JSON</strong> shows the same thing as a file. The shape is:
+        </p>
+        <pre><code>{
+  "deployment_url": "https://connect-gateway.your-installation.testinator.ai",
+  "auth_token": "…",
+  "timeout": 120,
+  "ssl_verify": false,
+  "display_name": "DESKTOP-MA6W47A",
+  "servers": {
+    "Playwright_MCP": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--caps", "vision", "--isolated"],
+      "stateful": true
+    },
+    "my_api": {
+      "type": "http",
+      "url": "http://localhost:8787/mcp",
+      "headers": { "Authorization": "Bearer MY_TOKEN" },
+      "stateful": true
+    },
+    "legacy_thing": {
+      "type": "sse",
+      "url": "http://localhost:9000/sse"
+    }
+  }
+}</code></pre>
+        <p>
+          Tokens, paths and process commands never leave your machine — the
+          installation only ever sees the tool calls and the list of tools each
+          server advertises.
+        </p>
+        <div class="callout">
+          The installation reads the advertised catalog when the app connects. After
+          adding or editing a server, save and let the app reconnect (Stop →
+          Start) before creating the session that should see it.
+        </div>
+      </section>
+
+      <section id="mcp-run" class="step-section" data-for-test="mcp">
+        <h2>Run a Desktop App session</h2>
+        <p>
+          To test the MCP servers themselves, create a test session for a product
+          of type <strong>Desktop App</strong>. There is no "What to Test" URL
+          list here — <strong>Where to Test</strong> covers both the machine and
+          what runs on it.
+        </p>
+        <p>
+          No such product yet? Create one under
+          <strong>Admin → Products → New</strong> with <strong>Product Type</strong>
+          set to <strong>Desktop App</strong>. The type is listed only when
+          Agentic QA Connect is enabled on the installation.
+        </p>
+        <ol>
+          <li>Pick the <strong>Connected client</strong>.</li>
+          <li>
+            Pick one or more <strong>MCP server</strong> cards. Each card shows
+            how many tools and resources that server advertises.
+          </li>
+          <li>
+            Narrow down the <strong>Tools</strong> and <strong>Resources</strong>
+            chips if you don't need all of them — the form warns you if you turn
+            every tool off, because the agent then has nothing to work with.
+          </li>
+        </ol>
+
+        <figure class="guide-figure">
+          <img
+            src="assets/images/connect-mcp-picker.png"
+            alt="Desktop App test session: connected client dropdown, MCP server cards, and per-tool selection chips"
+          />
+          <figcaption>Client → servers → tools. Your selection is remembered per product and client for the next session.</figcaption>
+        </figure>
+        <div class="callout">
+          A Desktop App session can't be scheduled, and a single check in it
+          can't be re-run or replayed. To repeat it, use <strong>Re-run</strong>
+          in the session header to start the whole session again.
+        </div>
+      </section>
+
+      <section id="windows-prepare" class="step-section" data-for-test="windows-app">
+        <h2>Prepare the machine</h2>
+        <p>
+          Test a native Windows application on your own Windows machine: the
+          agent sees the screen and drives the mouse and keyboard through the
+          <code>windows_mcp</code> server in the app.
+        </p>
+
+        <ul>
+          <li>Windows 10 or 11, x64, with the app installed and connected — see <a href="#install">Installation</a>.</li>
+          <li>
+            A logged-in, <strong>unlocked</strong> desktop for the whole run. A
+            locked screen or a disconnected Remote Desktop session stops every
+            click and keystroke — turn off the screen saver and the automatic lock.
+          </li>
+          <li>
+            Don't use the mouse or keyboard while checks run. The agent shares
+            them with you, and anything you click moves the application out from
+            under it.
+          </li>
+          <li>
+            The application under test shouldn't run as administrator: Windows
+            doesn't let a regular process control elevated windows. If it has to
+            run elevated, start the Agentic QA Connect app as administrator as
+            well.
+          </li>
+          <li>Set the Windows display language to English.</li>
+          <li>Run one session per machine at a time — two sessions would fight over the same screen.</li>
+        </ul>
+        <div class="callout warn">
+          The agent gets every <code>windows_mcp</code> tool, including
+          <code>PowerShell</code>, <code>Registry</code> and
+          <code>FileSystem</code>, which act with your Windows account's rights.
+          Use a machine set aside for testing, not your everyday workstation.
+        </div>
+      </section>
+
+      <section id="windows-server" class="step-section" data-for-test="windows-app">
+        <h2>Add the <code>windows_mcp</code> server</h2>
+        <p>
+          In the app, open <strong>MCP Servers → + Add Server</strong>, fill it in
+          exactly like this and click <strong>Save</strong>:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Name</td><td><code>windows_mcp</code></td></tr>
+            <tr><td>Type</td><td><code>stdio</code></td></tr>
+            <tr><td>Stateful</td><td>on</td></tr>
+            <tr><td>Command</td><td><code>uvx</code></td></tr>
+            <tr><td>Args</td><td><code>windows-mcp@0.8.5 serve</code></td></tr>
+          </tbody>
+        </table>
+        <figure class="guide-figure">
+          <img
+            src="assets/images/windows-mcp-server.png"
+            alt="Agentic QA Connect MCP Servers tab with a highlighted windows_mcp server card: stdio, Stateful on, command uvx, args windows-mcp@0.8.5 serve"
+          />
+          <figcaption>The <code>windows_mcp</code> server card: <strong>Stateful</strong> on, command <code>uvx</code>, args <code>windows-mcp@0.8.5 serve</code>.</figcaption>
+        </figure>
+        <ul>
+          <li>
+            <strong>Use exactly this name.</strong> The installation finds the
+            driver by it: a server called <code>Windows_MCP</code> isn't
+            recognised, and the session form finds no driver on the machine.
+          </li>
+          <li><strong>Keep Stateful on.</strong> Without it every single click starts the server from scratch.</li>
+          <li>
+            <strong>Keep the exact version in Args.</strong> With
+            <code>@latest</code> the server looks for a new release on every
+            start and downloads it when there is one, so a session can fail to
+            start at a random moment.
+          </li>
+          <li>Nothing else to install: <code>uvx</code> runs through the copy of <code>uv</code> that ships with the app.</li>
+        </ul>
+      </section>
+
+      <section id="windows-test" class="step-section" data-for-test="windows-app">
+        <h2>Test the server</h2>
+        <p>
+          Click <strong>Test</strong> on the <code>windows_mcp</code> card. A working
+          server reports how many tools it found. Then click <strong>Stop</strong>
+          and <strong>Start</strong> on the Dashboard so the installation sees it.
+        </p>
+        <figure class="guide-figure">
+          <img
+            src="assets/images/windows-mcp-test.png"
+            alt="The windows_mcp server card after Test: 20 tools found, with the Test button and the result highlighted"
+          />
+          <figcaption>A working server reports how many tools it found.</figcaption>
+        </figure>
+        <div class="callout">
+          The very first start downloads Python and the server and often takes
+          longer than the minute the app waits for it. If Test or the Activity log
+          reports <code>MCP error -32001: Request timed out</code>, follow
+          <a href="#fix-discover-timeout">the fix in Troubleshooting</a>.
+        </div>
+      </section>
+
+      <section id="windows-product" class="step-section" data-for-test="windows-app">
+        <h2>Create a Desktop App Windows product</h2>
+        <p>
+          In the installation, open <strong>Admin → Products → New</strong>, name
+          the product and set <strong>Product Type</strong> to
+          <strong>Desktop App Windows</strong>. The type is listed only when
+          Agentic QA Connect is enabled on the installation.
+        </p>
+        <figure class="guide-figure">
+          <img
+            src="assets/images/windows-product-form.png"
+            alt="New product form in the installation with the Product Type set to Desktop App Windows and highlighted"
+          />
+          <figcaption>Admin → Products → new product with <strong>Product Type</strong> set to <strong>Desktop App Windows</strong>.</figcaption>
+        </figure>
+      </section>
+
+      <section id="windows-run" class="step-section" data-for-test="windows-app">
+        <h2>Run a Windows session</h2>
+        <p>
+          Create a test session for that product — the
+          <strong>Windows MCP Test Workflow</strong> is picked for you. Under
+          <strong>Where to Test</strong>:
+        </p>
+        <ol>
+          <li><strong>Connected client</strong> — your machine.</li>
+          <li>
+            <strong>Driver</strong> — <code>windows_mcp</code>. It's offered only
+            when the selected machine's app has a server with that name.
+          </li>
+          <li>
+            <strong>App to launch</strong> (optional) — the application's name as
+            it appears in the Start menu; it's launched at the start of every
+            check. Leave it empty to run the checks against whatever is already
+            open, for example an application you started by hand or a Remote
+            Desktop window.
+          </li>
+        </ol>
+        <p>
+          <strong>Setup Notes</strong> are optional too: the agent gets them with
+          every check, so use them for anything it should know about the machine
+          or the application.
+        </p>
+        <figure class="guide-figure">
+          <img
+            src="assets/images/windows-session-form.png"
+            alt="Test session form, Where to Test step for a Desktop App Windows product: connected client, driver, and the optional App to launch field"
+          />
+          <figcaption>Pick the machine, the driver, and optionally the app to launch before the checks run.</figcaption>
+        </figure>
+      </section>
+
+      <section id="test-troubleshooting" data-for-test="web mcp windows-app">
+        <h2>Troubleshooting</h2>
+        <p>
+          Start with the <strong>Activity log</strong> on the app's Dashboard: it
+          records server discovery, connection and every tool call.
+        </p>
+        <details class="fix" id="fix-discover-timeout" data-for-test="windows-app">
+          <summary>Log says <code>Failed to discover from "windows_mcp": MCP error -32001: Request timed out</code></summary>
+          <figure class="guide-figure">
+            <img
+              src="assets/images/connect-discover-timeout-log.png"
+              alt="Activity log: the app connects to the windows_mcp server and a minute later reports Failed to discover from windows_mcp: MCP error -32001: Request timed out"
+            />
+            <figcaption>The app waits one minute for the server to answer, then gives up and connects without its tools.</figcaption>
+          </figure>
+          <p>
+            On its first start the server downloads Python and the
+            <code>windows-mcp</code> package, about 50 MB, and doesn't answer within
+            the minute the app waits for it. Download everything once by hand:
+            after that the server starts in seconds.
+          </p>
+
+          <h3>Fix: warm the server up with the app's own uv</h3>
+          <ol>
+            <li>
+              Open <strong>PowerShell</strong> and run:
+              <pre><code>$uv = Get-ChildItem "$env:LOCALAPPDATA\Programs\*\resources\uv-windows-x64.exe", "$env:ProgramFiles\*\resources\uv-windows-x64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+&amp; $uv.FullName tool run windows-mcp@0.8.5 serve</code></pre>
+            </li>
+            <li>
+              Wait until it prints its start-up output and sits waiting, then press
+              <strong>Ctrl+C</strong>. If you installed the app into another folder,
+              use the <code>uv-windows-x64.exe</code> from its <code>resources</code>
+              folder.
+            </li>
+            <li>
+              In the app, click <strong>Test</strong> on the <code>windows_mcp</code>
+              card — it now reports the tool count — then <strong>Stop</strong> and
+              <strong>Start</strong> on the Dashboard.
+            </li>
+          </ol>
+
+          <h3>If that didn't help: install uv and warm up with it</h3>
+          <ol>
+            <li>
+              Install uv with its official installer. If your organisation blocks
+              scripts from the internet, ask IT to install uv instead.
+              <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"</code></pre>
+            </li>
+            <li>
+              Open a <strong>new</strong> PowerShell window, so it picks up uv, and run
+              the command below. When it prints its start-up output, press
+              <strong>Ctrl+C</strong>.
+              <pre><code>uvx windows-mcp@0.8.5 serve</code></pre>
+            </li>
+            <li>Click <strong>Test</strong> in the app again, then <strong>Stop</strong> and <strong>Start</strong>.</li>
+          </ol>
+          <p>
+            The app still runs the server with its own copy of uv; the warm-up only
+            downloads what the server needs in advance.
+          </p>
+          <div class="callout">
+            Behind a corporate proxy, set it in the PowerShell window before the
+            warm-up, for example
+            <code>$env:HTTPS_PROXY = "http://proxy.example.com:8080"</code>: the app
+            doesn't pass proxy settings on to the server's first download.
+          </div>
+        </details>
+        <table>
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely cause</th>
+              <th>What to try</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"You haven't paired any Agentic QA Connect clients"</td>
+              <td>This account has no client of its own yet.</td>
+              <td>User Settings → Agentic QA Connect → <strong>Connect app</strong>, or pair by Client ID.</td>
+            </tr>
+            <tr>
+              <td>"None of your paired clients are currently connected"</td>
+              <td>The pairing exists, but no paired machine is online.</td>
+              <td>Start the app on one of the listed machines and press <strong>Start</strong>; the form updates live.</td>
+            </tr>
+            <tr data-for-test="mcp">
+              <td>A server is missing from the MCP server cards</td>
+              <td>The entry wasn't saved, or the app connected before it was added.</td>
+              <td>Save it on the MCP Servers tab, hit <strong>Test</strong>, then Stop → Start and re-create the session.</td>
+            </tr>
+            <tr data-for-test="web">
+              <td>Local Machine session starts but no browser opens</td>
+              <td><code>Playwright_MCP</code> isn't marked <strong>Stateful</strong>, or the browser binary isn't installed.</td>
+              <td>Turn Stateful on for it; use <strong>Install</strong> under Config → Playwright MCP.</td>
+            </tr>
+            <tr data-for-test="web">
+              <td>A tool reports that the <code>network</code> capability is not enabled</td>
+              <td>The Playwright MCP server was started without that capability.</td>
+              <td>Config → Playwright MCP → <strong>Capabilities</strong> → enable <code>network</code>, then reconnect.</td>
+            </tr>
+            <tr data-for-test="mcp">
+              <td><code>400 INVALID_ARGUMENT</code> from the model on a session run</td>
+              <td>Too many tools selected → the schema is too large for the model.</td>
+              <td>Toggle off tools you don't need for this check.</td>
+            </tr>
+            <tr data-for-test="windows-app">
+              <td>A Windows session says <em>"No supported driver detected on this client"</em></td>
+              <td>The server isn't named exactly <code>windows_mcp</code>, or the app connected before it was added.</td>
+              <td>Rename it to <code>windows_mcp</code>, Save, then Stop → Start in the app.</td>
+            </tr>
+            <tr data-for-test="windows-app">
+              <td>A Windows check is blocked with a transport error during <code>Snapshot</code></td>
+              <td>The application under test stopped responding, or the screen got locked.</td>
+              <td>Keep the desktop unlocked and hands off; restart the application and run the session again.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      </div>
+
+      <footer>
+        <p>
+          Need help? Reach out in the agentic-qa channel, or open an
+          issue against <code>Agentic QA Workflow</code> for UI bugs
+          and <code>Agentic QA Connect</code> for app-side bugs.
+        </p>
+      </footer>
+      </main>
+    </div>
+    <script>
+      (function () {
+        var root = document.documentElement;
+
+        function current() {
+          return {
+            os: root.getAttribute("data-os"),
+            test: root.getAttribute("data-test"),
+            tab: root.getAttribute("data-tab"),
+            connect: root.getAttribute("data-connect")
+          };
+        }
+
+        function linkFor(state) {
+          var params = new URLSearchParams(location.search);
+          params.set("os", state.os);
+          params.set("tab", state.tab);
+          if (state.test === "none") params.delete("test");
+          else params.set("test", state.test);
+          return location.pathname + "?" + params.toString() + location.hash;
+        }
+
+        function sync() {
+          var state = current();
+          document.querySelectorAll("[data-os-choice]").forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.getAttribute("data-os-choice") === state.os));
+          });
+          document.querySelectorAll("[data-test-choice]").forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.getAttribute("data-test-choice") === state.test));
+          });
+          document.querySelectorAll('[role="tab"]').forEach(function (tab) {
+            var selected = tab.hasAttribute("data-tab-choice")
+              ? tab.getAttribute("data-tab-choice") === state.tab
+              : tab.getAttribute("data-connect-choice") === state.connect;
+            tab.setAttribute("aria-selected", String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+          });
+        }
+
+        function update(changes) {
+          var state = current();
+          Object.keys(changes).forEach(function (key) { state[key] = changes[key]; });
+          if (changes.os === "mac" && state.test === "windows-app") state.test = "none";
+          if (state.test === "windows-app") state.os = "windows";
+          root.setAttribute("data-os", state.os);
+          root.setAttribute("data-test", state.test);
+          root.setAttribute("data-tab", state.tab);
+          root.setAttribute("data-connect", state.connect);
+          sync();
+          try {
+            localStorage.setItem("connect-guide-os", state.os);
+            localStorage.setItem("connect-guide-test", state.test);
+          } catch (e) {}
+          try { history.replaceState(null, "", linkFor(state)); } catch (e) {}
+        }
+
+        function makeVisible(target) {
+          var changes = {};
+          var panel = target.closest("[data-tab-panel]");
+          if (panel && panel.getAttribute("data-tab-panel") !== current().tab) {
+            changes.tab = panel.getAttribute("data-tab-panel");
+          }
+          var connectPanel = target.closest("[data-connect-panel]");
+          if (connectPanel && connectPanel.getAttribute("data-connect-panel") !== current().connect) {
+            changes.connect = connectPanel.getAttribute("data-connect-panel");
+          }
+          var details = target.closest("details");
+          if (details) details.open = true;
+          var holder = target.closest("[data-for-test]");
+          if (holder) {
+            var tests = holder.getAttribute("data-for-test").split(/\s+/);
+            if (tests.indexOf(current().test) === -1) {
+              changes.test = tests.filter(function (test) { return test !== "none"; })[0] || "none";
+            }
+          }
+          if (Object.keys(changes).length === 0) return false;
+          update(changes);
+          return true;
+        }
+
+        function reveal(scroll) {
+          var id = decodeURIComponent(location.hash.slice(1));
+          var target = id && document.getElementById(id);
+          if (!target) return;
+          if (makeVisible(target)) scroll = true;
+          if (scroll) target.scrollIntoView();
+        }
+
+        document.addEventListener("click", function (event) {
+          var link = event.target.closest('a[href^="#"]');
+          if (link) {
+            var linked = document.getElementById(decodeURIComponent(link.getAttribute("href").slice(1)));
+            if (linked) makeVisible(linked);
+            return;
+          }
+          var osButton = event.target.closest("[data-os-choice]");
+          if (osButton) {
+            update({ os: osButton.getAttribute("data-os-choice") });
+            return;
+          }
+          var connectButton = event.target.closest("[data-connect-choice]");
+          if (connectButton) {
+            update({ connect: connectButton.getAttribute("data-connect-choice") });
+            return;
+          }
+          var tabButton = event.target.closest("[data-tab-choice]");
+          if (tabButton) {
+            update({ tab: tabButton.getAttribute("data-tab-choice") });
+            if (!tabButton.closest(".tabs")) document.querySelector(".tabs").scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          var testButton = event.target.closest("[data-test-choice]");
+          if (testButton) {
+            update({ test: testButton.getAttribute("data-test-choice") });
+          }
+        });
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+          var tab = event.target.closest && event.target.closest('[role="tab"]');
+          if (!tab) return;
+          var tabs = Array.prototype.slice.call(tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]'));
+          var step = event.key === "ArrowRight" ? 1 : tabs.length - 1;
+          var next = tabs[(tabs.indexOf(tab) + step) % tabs.length];
+          event.preventDefault();
+          next.click();
+          next.focus();
+        });
+
+        window.addEventListener("hashchange", function () { reveal(false); });
+        sync();
+        reveal(false);
+      })();
+    </script>
+  </body>
+</html>

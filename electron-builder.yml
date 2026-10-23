@@ -20,9 +20,14 @@ files:
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!electron-builder.*.yml'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.*}'
+  - '!build/*'
+  - '!docs/**'
+  - '!dev-docs/**'
+  - '!.claude/**'
 
 asarUnpack:
   - resources/**
@@ -43,16 +48,23 @@ extraResources:
 
 mac:
   icon: images/macos/icon.icns
-  identity: "-"
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
+  artifactName: Agentic-QA-Connect-mac-${arch}.${ext}
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
+  notarize: true
   target:
     - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
       arch:
         - arm64
         - x64
@@ -68,6 +80,8 @@ linux:
   icon: images/linux/icons
 
 nsis:
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
+  artifactName: Agentic-QA-Connect-Setup-win-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
   shortcutName: Agentic QA - connect

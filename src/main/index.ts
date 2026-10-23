@@ -16,6 +16,8 @@ import { sessionManager } from './service/session-manager'
 import { discoverServerTools } from './service/mcp-client'
 import { installBrowser, isBrowserInstalled } from './playwright'
 import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
+import { createUpdater } from './updater'
+import type { Updater } from './updater'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 import type { AppConfig, ServerConfig, DeepLinkConfigPayload } from '../shared/ipc-types'
 
@@ -270,6 +272,12 @@ function registerIpcHandlers(): void {
   })
 }
 
+function registerUpdaterIpc(updater: Updater): void {
+  ipcMain.handle(IPC_TO_MAIN.UPDATE_GET_STATE, () => updater.getState())
+  ipcMain.handle(IPC_TO_MAIN.UPDATE_CHECK, () => updater.checkNow(true))
+  ipcMain.handle(IPC_TO_MAIN.UPDATE_INSTALL, () => updater.install())
+}
+
 // macOS delivers deep links via 'open-url' instead of argv; register before
 // whenReady since it can fire while the app is still launching.
 app.on('open-url', (event, url) => {
@@ -303,6 +311,13 @@ app.whenReady().then(() => {
 
   createWindow()
   registerIpcHandlers()
+  registerUpdaterIpc(
+    createUpdater({
+      getWindow: () => mainWindow,
+      getActiveSessionCount: () => Object.keys(sessionManager.listSessions()).length,
+      logger,
+    }),
+  )
 
   // Windows/Linux cold-launch: no other instance was running (so
   // 'second-instance' never fired) and it's not macOS (so 'open-url' never
