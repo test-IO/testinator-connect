@@ -75,4 +75,4 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
-        run: npm run dist:win
+        run: npm run dist:win:unsigned

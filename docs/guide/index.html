@@ -5,6 +5,20 @@
     <meta name="viewport" content="initial-scale=1, width=device-width">
     <meta name="robots" content="noindex, nofollow">
     <title>Agentic QA Connect — Usage Guide</title>
+    <meta name="description" content="How to install Agentic QA Connect on Windows or macOS, connect it to your Agentic QA installation and run test sessions on your machine.">
+    <link rel="icon" type="image/png" href="../assets/images/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="../assets/images/favicon.svg">
+    <link rel="shortcut icon" href="../favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/images/apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://connect.testinator.ai/guide/">
+    <meta property="og:title" content="Agentic QA Connect — Usage Guide">
+    <meta property="og:description" content="How to install Agentic QA Connect on Windows or macOS, connect it to your Agentic QA installation and run test sessions on your machine.">
+    <meta property="og:image" content="https://connect.testinator.ai/assets/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Agentic QA, an EPAM product">
+    <meta name="twitter:card" content="summary_large_image">
     <script>
       (function () {
         var root = document.documentElement;
@@ -758,6 +772,7 @@
           <li data-step><a href="#install">Install and launch the app</a></li>
           <li data-step><a href="#connect">Connect it to your installation</a></li>
           <li data-step><a href="#verify">Check that it is online</a></li>
+          <li><a href="#updates">Updates</a></li>
           <li><a href="#install-troubleshooting">Troubleshooting</a></li>
         </ol>
 
@@ -820,22 +835,24 @@
       <section id="install" class="step-section">
         <h2>Install and launch the app</h2>
         <p>
-          Download the latest build for your OS from the
-          <a href="https://github.com/test-IO/testinator-connect/releases/latest">releases page</a>,
-          install it like any other desktop app, and launch it.
+          Download the app from
+          <a href="https://connect.testinator.ai/">connect.testinator.ai</a> —
+          the page offers the build for your OS (and your Mac's chip) — install it
+          like any other desktop app, and launch it. Once installed, the app keeps
+          itself up to date (see <a href="#updates">Updates</a>).
         </p>
 
         <div data-os="windows">
           <p class="os-note">Windows</p>
           <p>
-            Download <code>Agentic-QA---connect-Setup-&lt;version&gt;.exe</code>
+            Download <code>Agentic-QA-Connect-Setup-win-x64.exe</code>
             and run it.
           </p>
 
           <h3>Windows: allow the installer to run</h3>
           <p>
-            The installer isn't code-signed yet, so Windows SmartScreen is likely
-            to stop it with <em>"Windows protected your PC"</em>. Click
+            The Windows installer isn't code-signed yet, so Windows SmartScreen is
+            likely to stop it with <em>"Windows protected your PC"</em>. Click
             <strong>More info</strong>, then <strong>Run anyway</strong>.
           </p>
           <figure class="guide-figure">
@@ -899,9 +916,9 @@
         <div data-os="mac">
           <p class="os-note">macOS</p>
           <p>
-            Download the <code>.dmg</code> for your Mac — the one ending in
-            <code>-arm64.dmg</code> for Apple silicon, the other one for Intel —
-            and open it.
+            Download the <code>.dmg</code> for your Mac —
+            <code>Agentic-QA-Connect-mac-arm64.dmg</code> for Apple silicon,
+            <code>Agentic-QA-Connect-mac-x64.dmg</code> for Intel — and open it.
           </p>
           <figure class="guide-figure">
             <img
@@ -911,39 +928,6 @@
             <figcaption>Drag the app into your Applications folder, then launch it.</figcaption>
           </figure>
 
-          <h3>macOS: allow the app to run</h3>
-          <p>
-            The app isn't signed with an Apple Developer ID yet, so the first time
-            you open it macOS refuses with
-            <em>"“Agentic QA - connect” is damaged and can't be opened"</em>. The
-            app isn't damaged: that's how macOS reports an unsigned app downloaded
-            from the internet. Click <strong>Cancel</strong>.
-          </p>
-          <figure class="guide-figure plain">
-            <img
-              src="assets/images/macos-damaged-alert.png"
-              alt="macOS alert: Agentic QA - connect is damaged and can't be opened, with the Cancel button highlighted"
-            />
-            <figcaption>Click <strong>Cancel</strong>, not Move to Trash (Move to Bin on some systems).</figcaption>
-          </figure>
-          <p>Then let macOS open it:</p>
-          <ol>
-            <li>Open <strong>Terminal</strong> (Applications → Utilities → Terminal).</li>
-            <li>
-              Paste this command and press Return. It removes the
-              "downloaded from the internet" mark from the app:
-              <pre><code>xattr -dr com.apple.quarantine "/Applications/Agentic QA - connect.app"</code></pre>
-            </li>
-            <li>
-              Open the app from Applications again. From now on it starts normally;
-              run the command again after you install a new version.
-            </li>
-          </ol>
-          <div class="callout">
-            On an Intel Mac, macOS may say instead that it can't verify the app;
-            the command fixes that too. Run it only for the app you downloaded
-            from the releases page.
-          </div>
         </div>
 
         <figure class="guide-figure">
@@ -967,8 +951,9 @@
           Everything happens on one page of the installation: open the account
           menu (your avatar, top right) → <strong>User Settings</strong> → the
           <strong>Agentic QA Connect</strong> tab. Every user has it; the tab
-          appears once Agentic QA Connect is enabled on the installation.
-          Connect the machine
+          appears once Agentic QA Connect is enabled on the installation. Its
+          <strong>Get the app ↗</strong> button opens the download page if the app
+          isn't installed yet. Connect the machine
           <strong>automatically</strong> with one click, or
           <strong>manually</strong> when the one-click link can't reach the app.
         </p>
@@ -1196,6 +1181,38 @@
         </div>
       </section>
 
+      <section id="updates">
+        <h2>Updates</h2>
+        <p>
+          The app updates itself. It checks for a new version when it starts and
+          every few hours, and downloads it in the background while you keep working.
+        </p>
+        <ul>
+          <li>
+            While a new version downloads, the sidebar shows
+            <strong>Downloading &lt;version&gt; · NN%</strong>.
+          </li>
+          <li>
+            When it's ready, the sidebar shows
+            <strong>Version &lt;version&gt; is ready</strong> and a
+            <strong>Restart to update</strong> button — click it to install now; the
+            app restarts on the new version. If you don't, the update installs the
+            next time you quit the app.
+          </li>
+          <li>
+            <strong>Config → Updates</strong> shows the installed version and the
+            last check, and has <strong>Check for updates</strong> to check right
+            away. If a check fails (usually no network), the status turns red —
+            hover it for the reason and try again later.
+          </li>
+        </ul>
+        <div class="callout">
+          <strong>Restart to update</strong> waits while a test session is running on
+          this machine — restarting would end it. Restart after the session finishes,
+          or just quit the app later: the update installs on quit.
+        </div>
+      </section>
+
       <section id="install-troubleshooting">
         <h2>Troubleshooting</h2>
         <table>
@@ -1370,7 +1387,7 @@
           <strong>Edit JSON</strong> shows the same thing as a file. The shape is:
         </p>
         <pre><code>{
-  "deployment_url": "https://connect-gateway.3873d9e0-d8bf-41a0-9c2e-ae14f02ae4fc.testinator.ai",
+  "deployment_url": "https://connect-gateway.your-installation.testinator.ai",
   "auth_token": "…",
   "timeout": 120,
   "ssl_verify": false,

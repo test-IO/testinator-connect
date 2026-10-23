@@ -47,6 +47,7 @@ extraResources:
 
 mac:
   icon: images/macos/icon.icns
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
   artifactName: Agentic-QA-Connect-mac-${arch}.${ext}
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
@@ -69,6 +70,12 @@ mac:
 
 win:
   icon: images/windows/icon.ico
+  # Sectigo OV certificate on a SafeNet eToken; signtool picks it from the Windows cert store.
+  signtoolOptions:
+    certificateSubjectName: test IO GmbH
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://timestamp.sectigo.com
   target:
     - target: nsis
       arch:
@@ -78,6 +85,7 @@ linux:
   icon: images/linux/icons
 
 nsis:
+  # No ${version} here: the landing page links to these names (docs/assets/js/download.js).
   artifactName: Agentic-QA-Connect-Setup-win-${arch}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
