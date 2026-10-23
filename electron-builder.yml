@@ -20,6 +20,7 @@ files:
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!electron-builder.*.yml'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.*}'
@@ -70,12 +71,6 @@ mac:
 
 win:
   icon: images/windows/icon.ico
-  # Sectigo OV certificate on a SafeNet eToken; signtool picks it from the Windows cert store.
-  signtoolOptions:
-    certificateSubjectName: test IO GmbH
-    signingHashAlgorithms:
-      - sha256
-    rfc3161TimeStampServer: http://timestamp.sectigo.com
   target:
     - target: nsis
       arch:

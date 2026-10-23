@@ -1,0 +1,10 @@
+# Signed Windows build: npm run dist:win / npm run release:win, on the computer with the token.
+# The Sectigo OV certificate is on a SafeNet eToken; signtool picks it from the Windows cert store.
+extends: ./electron-builder.yml
+
+win:
+  signtoolOptions:
+    certificateSubjectName: test IO GmbH
+    signingHashAlgorithms:
+      - sha256
+    rfc3161TimeStampServer: http://timestamp.sectigo.com

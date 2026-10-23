@@ -54,8 +54,9 @@ try {
   npm run build
   if ($LASTEXITCODE) { throw 'npm run build failed' }
 
-  # Signs with win.signtoolOptions from electron-builder.yml and writes latest.yml from the signed files.
-  npx electron-builder --win --publish always --config.forceCodeSigning=true --config.publish.releaseType=draft
+  # Signs with electron-builder.win-signed.yml and writes latest.yml from the signed files.
+  npx electron-builder --win --publish always --config electron-builder.win-signed.yml `
+    --config.forceCodeSigning=true --config.publish.releaseType=draft
   if ($LASTEXITCODE) { throw 'electron-builder failed' }
 
   $signature = Get-AuthenticodeSignature "dist\$installer"
