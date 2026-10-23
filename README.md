@@ -266,7 +266,7 @@ Two GitHub Actions workflows build the app:
 | Workflow | Runs on | Does |
 |----------|---------|------|
 | [`build.yml`](.github/workflows/build.yml) | every push and every pull request into `main` (skipped when only `docs/`, `dev-docs/`, `tests/site/` or `.claude/` change) | tests, then builds unsigned macOS (DMG + ZIP, arm64 + x64) and Windows (NSIS, x64) packages to check that the app still packages; nothing is published |
-| [`release.yml`](.github/workflows/release.yml) | push to `main` | releases only when `version` in `package.json` is new: tests, builds the signed and notarized macOS and the Windows installers, publishes a GitHub Release that becomes `releases/latest` (what running apps update to) |
+| [`release.yml`](.github/workflows/release.yml) | push to `main` | releases only when `version` in `package.json` is new: tests, builds the signed and notarized macOS installers into a draft GitHub Release. `npm run release:win` on the computer with the Windows signing token adds the signed Windows installer and publishes it as `releases/latest` (what running apps update to) |
 
 How to cut a release, version rules and signing: [RELEASING.md](RELEASING.md).
 
@@ -289,7 +289,8 @@ Output: `dist/Agentic-QA-Connect-mac-arm64.dmg` and `dist/Agentic-QA-Connect-mac
 Run on Windows:
 
 ```bash
-npm run dist:win
+npm run dist:win            # signed: needs the SafeNet token with the test IO GmbH certificate
+npm run dist:win:unsigned   # any Windows machine
 ```
 
 Output: `dist/Agentic-QA-Connect-Setup-win-x64.exe` (NSIS installer with optional install directory selection)
@@ -314,12 +315,9 @@ Runs the last production build locally without packaging.
 
 ## Code signing setup
 
-Code signing is handled by electron-builder via two environment variables that CI sets from GitHub secrets:
-
-| Environment variable | Secret | Description |
-|---------------------|--------|-------------|
-| `CSC_LINK` | `CSC_LINK` (macOS) / `windows_certs` (Windows, not wired yet) | Base64-encoded certificate (.p12 / .pfx) |
-| `CSC_KEY_PASSWORD` | `CSC_KEY_PASSWORD` (macOS) / `windows_certs_password` (Windows, not wired yet) | Password for the certificate |
+- **macOS:** CI signs with the certificate in the `CSC_LINK` / `CSC_KEY_PASSWORD` secrets.
+- **Windows:** the Sectigo certificate is on a SafeNet USB token, so releases are signed on the
+  computer with the token: [RELEASING.md](RELEASING.md#windows-signing).
 
 Add secrets in your GitHub repository: **Settings → Secrets and variables → Actions → New repository secret**.
 
@@ -339,53 +337,6 @@ Requires an [Apple Developer Program](https://developer.apple.com/programs/) mem
 7. Add GitHub secret **`CSC_KEY_PASSWORD`**: the password you set in step 4.
 
 > **Notarization:** macOS release builds are signed and notarized (`notarize: true` in `electron-builder.yml`); the release workflow also needs `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`. Secrets, log checks and the `MAC_SIGNING_ENABLED` switch: [RELEASING.md](RELEASING.md#macos-signing).
-
-### Windows — Code signing certificate
-
-#### Option A — Self-signed certificate (development / testing only)
-
-Self-signed certificates are **not trusted by Windows SmartScreen** and will trigger a warning for end users. Use this only for internal testing.
-
-Run in an **elevated PowerShell** on Windows:
-
-```powershell
-$cert = New-SelfSignedCertificate `
-  -Type CodeSigning `
-  -Subject "CN=Agentic QA" `
-  -CertStoreLocation Cert:\CurrentUser\My `
-  -NotAfter (Get-Date).AddYears(3)
-
-$pwd = ConvertTo-SecureString "YourCertPassword" -AsPlainText -Force
-Export-PfxCertificate -Cert $cert -FilePath certificate.pfx -Password $pwd
-```
-
-Then base64-encode the `.pfx`:
-
-```powershell
-# Windows PowerShell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx")) | Set-Clipboard
-```
-
-```bash
-# macOS / Linux
-base64 -i certificate.pfx | pbcopy
-```
-
-#### Option B — Commercial certificate (production)
-
-Commercial certificates are issued by Microsoft-trusted Certificate Authorities and avoid SmartScreen reputation warnings. EV (Extended Validation) certificates are immediately trusted with no reputation-building period required.
-
-Recommended CAs: [DigiCert](https://www.digicert.com/signing/code-signing-certificates), [Sectigo](https://sectigo.com/ssl-certificates-tls/code-signing), [GlobalSign](https://www.globalsign.com/en/code-signing-certificate).
-
-1. Purchase a **Code Signing** certificate (OV or EV) from a trusted CA.
-2. Complete their identity verification process (OV: organization validation; EV: extended validation with stricter checks).
-3. The CA will issue the certificate. Export it as a `.pfx` file with a password using their portal or the Windows Certificate Manager.
-4. Base64-encode the `.pfx` as shown in Option A above.
-
-#### Registering the Windows secrets
-
-5. Add GitHub secret **`windows_certs`**: paste the base64 string.
-6. Add GitHub secret **`windows_certs_password`**: the password protecting the `.pfx`.
 
 ---
 

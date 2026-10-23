@@ -12,10 +12,14 @@ Bump the version in the PR that should ship:
 npm version 0.2.0 --no-git-tag-version
 ```
 
-Commit `package.json` and `package-lock.json` with the PR. When it merges, the `Release`
-workflow sees that `v0.2.0` has no release yet, runs the tests, and creates a draft release.
-The macOS and Windows jobs upload installers plus `latest.yml` / `latest-mac.yml` to that
-draft; once both finish, the `publish` job makes it public and `releases/latest`.
+Commit `package.json` and `package-lock.json` with the PR. Then:
+
+1. Merge. The `Release` workflow runs the tests, creates a draft release `v0.2.0` and uploads
+   the signed, notarized macOS files to it (about 15 minutes).
+2. The Windows token owner runs `npm run release:win` on the signing computer. It signs and
+   uploads the Windows installer and publishes the draft, which becomes `releases/latest`.
+
+Until step 2 nobody gets the update: a draft is invisible to apps and the download page.
 
 Merges that keep the same version (docs, CI, landing page) release nothing.
 
@@ -39,11 +43,36 @@ update themselves.
 If the Apple ID password changes, its app-specific password stops working: create a new one
 and update `APPLE_APP_SPECIFIC_PASSWORD`.
 
+## Windows signing
+
+The Sectigo certificate (`test IO GmbH`) lives on a SafeNet USB token, so CI cannot sign
+Windows builds. `npm run release:win` does the Windows part on the computer with the token.
+This stays until signing moves to Azure Artifact Signing.
+
+One-time setup on that computer:
+
+- Git, Node.js 20, SafeNet Authentication Client with "Single Logon" turned on (otherwise it
+  asks for the token password once per signed file).
+- A clone of this repo with a `.env.local` next to `package.json`:
+  ```
+  GH_TOKEN=<GitHub token with Contents: read and write on this repo>
+  AIRBRAKE_PROJECT_ID=...
+  AIRBRAKE_PROJECT_KEY=...
+  ```
+
+Each release: plug in the token and run `npm run release:win`. The script finds the draft,
+builds its exact commit, signs the app, uninstaller and installer, uploads them with
+`latest.yml`, checks the signature and publishes the draft once the macOS files are there.
+
+Never sign an installer by hand and swap it into a release: signing changes the file, so it
+no longer matches `latest.yml` and Windows updates fail. Never publish an unsigned Windows
+build either: apps installed from a signed one reject updates from another publisher.
+
 ## If a build fails
 
-The release stays a draft, so users are unaffected. Fix the cause and re-run the failed jobs.
-If the fix needs a new commit, merge it with the same version: the next run replaces the
-draft and releases again.
+The release stays a draft, so users are unaffected. Fix the cause and re-run the failed jobs,
+or run `npm run release:win` again. If the fix needs a new commit, merge it with the same
+version: the next run replaces the draft, then run `npm run release:win` again.
 
 ## Verify
 
@@ -65,7 +94,8 @@ If a coming change would break installations that cannot be upgraded in time, st
 before it ships:
 
 1. Repo → Settings → Secrets and variables → Actions → Variables: set `AUTO_UPDATE_ENABLED=false`.
-2. Merge a version bump of the current, still-compatible code (e.g. `0.4.1`).
+2. Merge a version bump of the current, still-compatible code (e.g. `0.4.1`) and finish it
+   with `npm run release:win -- -DisableAutoUpdate`.
    Running apps update to it once, then stop checking ("Manual updates only").
 3. Turn updates back on later by setting `AUTO_UPDATE_ENABLED` back to `true` (or deleting it).
    Machines on the emergency version need one manual download from the landing page.

@@ -49,6 +49,8 @@ jobs:
           if [ "${{ steps.plan.outputs.recreate_draft }}" = true ]; then gh release delete "$TAG" --yes; fi
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "${TAG#v}"
 
+  # Windows is signed with a USB token, so it can't run here: scripts/release-windows.ps1
+  # (npm run release:win) builds, signs and uploads it, then publishes the draft.
   release-macos:
     name: Release macOS
     needs: prepare
@@ -122,57 +124,3 @@ jobs:
             --publish always \
             --config.mac.forceCodeSigning=true \
             --config.publish.releaseType=draft
-
-  release-windows:
-    name: Release Windows
-    needs: prepare
-    if: needs.prepare.outputs.release == 'true'
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install --no-package-lock
-
-      - name: Download uv binary
-        shell: pwsh
-        run: |
-          $tmp = "$env:TEMP\uv-win.zip"
-          Invoke-WebRequest "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip" -OutFile $tmp
-          Expand-Archive -Path $tmp -DestinationPath "$env:TEMP\uv-win" -Force
-          Move-Item "$env:TEMP\uv-win\uv.exe" "resources\uv-windows-x64.exe" -Force
-
-      - name: Build
-        env:
-          AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
-          AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
-          MAIN_VITE_AUTO_UPDATE: ${{ vars.AUTO_UPDATE_ENABLED == 'false' && 'false' || 'true' }}
-        run: npm run build
-
-      - name: Package and publish release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # CSC_LINK: ${{ secrets.windows_certs }}
-          # CSC_KEY_PASSWORD: ${{ secrets.windows_certs_password }}
-        run: |
-          npx electron-builder --win `
-            --publish always `
-            --config.publish.releaseType=draft
-        shell: pwsh
-
-  publish:
-    name: Publish release
-    needs: [prepare, release-macos, release-windows]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish draft as latest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.prepare.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
