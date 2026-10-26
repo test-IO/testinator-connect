@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
-import { spawn } from 'child_process'
+import { spawn, execFile } from 'child_process'
 
 // Run Electron's own binary as plain Node (via ELECTRON_RUN_AS_NODE) instead of
 // relying on a system-installed `node` on PATH, which packaged end-user installs
@@ -125,11 +125,56 @@ export function isBrowserInstalled(browser: string): boolean {
   }
 }
 
-export function installBrowser(
+// Node (Electron 33 = Node 20) trusts only its bundled Mozilla CA list, not the OS store.
+// Behind a TLS-inspecting proxy, whose root CA lives in the OS store, downloads then fail
+// with SELF_SIGNED_CERT_IN_CHAIN. `--use-system-ca` is unavailable on Node 20, so export the
+// OS trust store to a PEM and hand it over via NODE_EXTRA_CA_CERTS (additive to the bundle).
+const EXPORT_WINDOWS_CERTS_PS = `
+$out = New-Object System.Text.StringBuilder
+$stores = 'Cert:\\LocalMachine\\Root','Cert:\\LocalMachine\\CA','Cert:\\CurrentUser\\Root','Cert:\\CurrentUser\\CA'
+foreach ($c in (Get-ChildItem $stores -ErrorAction SilentlyContinue)) {
+  [void]$out.AppendLine('-----BEGIN CERTIFICATE-----')
+  [void]$out.AppendLine([Convert]::ToBase64String($c.RawData, 'InsertLineBreaks'))
+  [void]$out.AppendLine('-----END CERTIFICATE-----')
+}
+[IO.File]::WriteAllText($args[0], $out.ToString(), [Text.Encoding]::ASCII)
+`
+
+function exportSystemCaBundle(): Promise<string | undefined> {
+  const target = path.join(app.getPath('userData'), 'system-ca-bundle.pem')
+  return new Promise((resolve) => {
+    const done = (err: Error | null): void =>
+      resolve(!err && fs.existsSync(target) && fs.statSync(target).size > 0 ? target : undefined)
+    if (process.platform === 'win32') {
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', `& { ${EXPORT_WINDOWS_CERTS_PS} } '${target}'`],
+        { windowsHide: true, timeout: 30000 },
+        (err) => done(err),
+      )
+    } else if (process.platform === 'darwin') {
+      execFile(
+        '/usr/bin/security',
+        ['find-certificate', '-a', '-p', '/Library/Keychains/System.keychain', '/System/Library/Keychains/SystemRootCertificates.keychain'],
+        { maxBuffer: 64 * 1024 * 1024, timeout: 30000 },
+        (err, stdout) => {
+          if (!err) fs.writeFileSync(target, stdout)
+          done(err)
+        },
+      )
+    } else {
+      resolve(undefined)
+    }
+  })
+}
+
+export async function installBrowser(
   browser: string,
   onOutput: (line: string) => void,
   sudoPassword?: string,
 ): Promise<void> {
+  // Best effort: an explicit NODE_EXTRA_CA_CERTS from the user wins.
+  const caBundle = process.env.NODE_EXTRA_CA_CERTS ? undefined : await exportSystemCaBundle()
   return new Promise((resolve, reject) => {
     const cliPath = getPlaywrightCliPath()
     const node = findNode()
@@ -160,6 +205,7 @@ export function installBrowser(
         ...process.env,
         PLAYWRIGHT_BROWSERS_PATH: getPlaywrightBrowsersPath(),
         ELECTRON_RUN_AS_NODE: '1',
+        ...(caBundle ? { NODE_EXTRA_CA_CERTS: caBundle } : {}),
       },
     })
     if (stdinData) {
