@@ -46,7 +46,7 @@ What happens:
 - `vmfarmd.exe` and the config are copied to `-InstallDir`, along with `relay-cert.pem` and `relay-key.txt` if they sit next to the config. The service runs that copy, so updating this folder never fights a running service.
 - The `vmfarmd` service is registered to start at boot as LocalSystem, restart on failure, and it is started now.
 - The service waits for the logged-on desktop session and starts `vmfarmd desktop` hidden inside it, as that user. It restarts it whenever it exits.
-- After an RDP disconnect, the service moves the session back to the console itself, about 15–20 s later, which replaces the manual `tscon`. It waits that long, and skips the move while an RDP client is connecting, so a reconnect is never interrupted.
+- After an RDP disconnect, the service moves the session back to the console itself, which replaces the manual `tscon`. It acts on Windows' disconnect event, about a second later and before Windows locks the session. An RDP reconnect never triggers it.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
 
 Check it:
