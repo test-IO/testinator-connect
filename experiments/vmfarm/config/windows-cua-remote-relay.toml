@@ -1,0 +1,17 @@
+# Daemon config with a TLS tunnel to a relay on another machine, for example a Mac exposed with `ngrok tcp 7443`.
+# Put relay-cert.pem (the relay's self-signed certificate) and relay-key.txt (the daemon key, one line)
+# next to this file; install-service.ps1 copies both along with it.
+listen = "127.0.0.1:7410"
+idle_timeout_secs = 1800
+log_dir = 'logs'
+
+[servers.cua_driver]
+command = "cua-driver"
+args = ["mcp"]
+
+[relay]
+address = "CHANGE-ME.tcp.eu.ngrok.io:12345"   # host:port from ngrok's "Forwarding tcp://..." line
+server_name = "vmfarm-relay.test"             # must match the certificate, not the ngrok host
+ca_file = 'relay-cert.pem'
+vm_id = "windows-test-copy"
+key_file = 'relay-key.txt'

@@ -1,0 +1,13 @@
+listen = "127.0.0.1:7410"
+idle_timeout_secs = 1800
+log_dir = 'logs'
+
+[servers.cua_driver]
+command = "cua-driver"
+args = ["mcp"]
+
+# Uncomment to open a tunnel to a relay. Set the key with the VMFARMD_RELAY_KEY variable,
+# or with key_file, so it doesn't sit in this file.
+# [relay]
+# address = "relay.example.com:7443"
+# vm_id = "windows-test-copy"

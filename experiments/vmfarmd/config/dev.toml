@@ -1,8 +1,0 @@
-# Local development on macOS or Linux: playwright-mcp stands in for cua-driver.
-listen = "127.0.0.1:7410"
-idle_timeout_secs = 1800
-log_dir = "tmp/logs"
-
-[servers.playwright]
-command = "npx"
-args = ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]

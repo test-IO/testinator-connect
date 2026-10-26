@@ -1,0 +1,14 @@
+# Runs the daemon against a relay on the same VM (relay-dev.toml), to test the tunnel on Windows.
+listen = "127.0.0.1:7410"
+idle_timeout_secs = 1800
+log_dir = 'logs'
+
+[servers.cua_driver]
+command = "cua-driver"
+args = ["mcp"]
+
+[relay]
+address = "127.0.0.1:7443"
+tls = false
+vm_id = "dev-mac"
+key = "dev-daemon-key"
