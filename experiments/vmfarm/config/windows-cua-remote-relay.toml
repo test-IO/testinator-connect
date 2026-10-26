@@ -13,5 +13,5 @@ args = ["mcp"]
 address = "CHANGE-ME.tcp.eu.ngrok.io:12345"   # host:port from ngrok's "Forwarding tcp://..." line
 server_name = "vmfarm-relay.test"             # must match the certificate, not the ngrok host
 ca_file = 'relay-cert.pem'
-vm_id = "windows-test-copy"
+vm_id = "CHANGE-ME"                     # fetch-relay-files.ps1 sets this to the instance name
 key_file = 'relay-key.txt'

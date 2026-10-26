@@ -12,6 +12,7 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `config/relay-dev.toml` | Relay config with dev keys: daemon key `dev-daemon-key`, tenant token `dev-tenant-token`. |
 | `install-service.ps1` | Installs, or updates, vmfarmd as a Windows Service that starts at boot. |
 | `uninstall-service.ps1` | Removes the service. |
+| `fetch-relay-files.ps1` | Fills in `windows-cua-remote-relay.toml` from this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
 | `run.ps1` | Starts the daemon by hand in the current session, without the service. |
 | `smoke.ps1` | Calls the daemon's local API: starts a session, calls `get_screen_size`, ends the session. |
 | `relay-smoke.ps1` | The same check, but through the relay, the way tooling will call it. |
@@ -69,19 +70,33 @@ cargo run -p vmfarm-relay -- serve --config config/relay-tls.toml
 ngrok tcp 7443                     # note the "Forwarding tcp://<host>:<port>" line
 ```
 
+Then hand the files to the VM through its GCP metadata, so nothing has to be copied over RDP. On the Mac, with ngrok's `host:port`:
+```bash
+gcloud compute instances add-metadata windows-vmfarm --zone europe-west3-c --project hl2-epm-aita-t1iylu \
+  --metadata-from-file vmfarm-relay-cert=tmp/relay/relay-cert.pem,vmfarm-relay-key=tmp/relay/relay-key.txt \
+  --metadata vmfarm-relay-address=<host>:<port>
+```
+
 On the VM:
-1. Copy `tmp/relay/relay-cert.pem` and `tmp/relay/relay-key.txt` from the Mac into `experiments\vmfarm\config\`. Both are git-ignored there.
-2. Set `address` in `config\windows-cua-remote-relay.toml` to ngrok's `<host>:<port>`.
-3. Install the service with `-Config ...\windows-cua-remote-relay.toml`, as shown above.
+```powershell
+.\experiments\vmfarm\fetch-relay-files.ps1      # writes the cert and key, sets address and vm_id
+```
+Then install the service with `-Config ...\windows-cua-remote-relay.toml`, as shown above.
+
+Afterwards, remove the key from the metadata again:
+```bash
+gcloud compute instances remove-metadata windows-vmfarm --zone europe-west3-c --project hl2-epm-aita-t1iylu \
+  --keys vmfarm-relay-cert,vmfarm-relay-key,vmfarm-relay-address
+```
 
 Then, on the Mac:
 ```bash
-curl -s localhost:7420/vms -H 'Authorization: Bearer dev-tenant-token'      # windows-test-copy: "online": true
-curl -s localhost:7420/vms/windows-test-copy/control -H 'Authorization: Bearer dev-tenant-token' \
+curl -s localhost:7420/vms -H 'Authorization: Bearer dev-tenant-token'      # your VM: "online": true
+curl -s localhost:7420/vms/windows-vmfarm/control -H 'Authorization: Bearer dev-tenant-token' \
   -H 'content-type: application/json' -d '{"op":"call_tool","name":"get_screen_size"}'
 ```
 
-MCP clients use `http://localhost:7420/vms/windows-test-copy/mcp` with that token. The free ngrok plan gives a new address on each start; update `address` on the VM and run `Restart-Service vmfarmd`.
+MCP clients use `http://localhost:7420/vms/windows-vmfarm/mcp` with that token. The free ngrok plan gives a new address on each start; update `address` on the VM and run `Restart-Service vmfarmd`.
 
 ## Run by hand (no service)
 
