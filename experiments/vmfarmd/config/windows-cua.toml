@@ -1,0 +1,7 @@
+listen = "127.0.0.1:7410"
+idle_timeout_secs = 1800
+log_dir = 'logs'
+
+[servers.cua_driver]
+command = "cua-driver"
+args = ["mcp"]
