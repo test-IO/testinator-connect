@@ -9,10 +9,12 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `config/windows-cua.toml` | Daemon config, local API only (`127.0.0.1:7410`). |
 | `config/windows-cua-local-relay.toml` | Daemon config that opens a tunnel to a relay on the same VM. |
 | `config/windows-cua-remote-relay.toml` | Daemon config that opens a TLS tunnel to a relay elsewhere, for example your Mac through ngrok. |
+| `config/relay-vm.toml` | Relay config for `start-vm-relay.ps1`: tenant API on `0.0.0.0:7420`, tunnel on `127.0.0.1:7443`. |
 | `config/relay-dev.toml` | Relay config with dev keys: daemon key `dev-daemon-key`, tenant token `dev-tenant-token`. |
 | `install-service.ps1` | Installs, or updates, vmfarmd as a Windows Service that starts at boot. |
 | `uninstall-service.ps1` | Removes the service. |
 | `diagnose.ps1` | Prints the service status, vmfarmd and cua-driver processes with their parents, the installed config, whether the relay is reachable, and the end of both logs. |
+| `start-vm-relay.ps1` | Test setup: runs the relay on this VM and opens TCP 7420 for the EPAM VPN, so a Mac on the VPN can call the VM through the relay. |
 | `cleanup-stray-install.ps1` | One-off: removes the service installed under `C:\User\...` by a typo, then reinstalls with the remote-relay config and runs `diagnose.ps1`. |
 | `fetch-relay-files.ps1` | Fills in `windows-cua-remote-relay.toml` from this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
 | `run.ps1` | Starts the daemon by hand in the current session, without the service. |
@@ -61,7 +63,23 @@ To update, run `install-service.ps1` again with the same `-InstallDir`. To chang
 
 **Note for later:** a service running as LocalSystem from a folder the user can write to is acceptable on a test VM. For the farm, the binary belongs in an admin-only folder such as `C:\Program Files\VmFarmDaemon`, signed, with the SentinelOne exclusion based on the signature or hash.
 
+## Relay on this VM, called from a Mac on the EPAM VPN
+
+The VM's GCP firewall allows all ports from the EPAM VPN addresses, so a Mac on the VPN can reach a relay running on the VM. From an elevated PowerShell:
+```powershell
+.\experiments\vmfarm\start-vm-relay.ps1
+```
+The script:
+- opens TCP 7420 in the Windows firewall, for the VPN addresses only;
+- reinstalls the service with `windows-cua-local-relay.toml`, which opens a tunnel to `127.0.0.1:7443`;
+- runs the relay in that window;
+- prints the URLs to call from the Mac.
+
+Every step is tested except the tunnel crossing the internet; that needs a relay on a public server.
+
 ## Relay on your Mac, through ngrok
+
+This doesn't work from the EPAM network: it blocks the ngrok agent's connection to ngrok (`ngrok diagnose` reports `ERR_NGROK_8001`).
 
 On the Mac, in `testinator-vm-daemon`, follow the comment at the top of `config/relay-tls.toml`. It makes a certificate and a daemon key, and you paste the key's hash into that file. Then run each of these in its own terminal:
 ```bash

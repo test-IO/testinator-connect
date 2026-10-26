@@ -1,0 +1,11 @@
+# Relay running on the VM itself, for testing from a Mac on the EPAM VPN: http://<VM IP>:7420
+# Daemon key "dev-daemon-key" (see windows-cua-local-relay.toml), tenant token "dev-tenant-token".
+api_listen = "0.0.0.0:7420"
+tunnel_listen = "127.0.0.1:7443"
+
+[daemons.local-vm]
+key_sha256 = "b7c18c5412ead850fc573d48cde455c05dbef43920fdff3c3731eb2552a8bdc8"
+
+[tenants.dev]
+token_sha256 = "f727ccd2e248abc4d738e0ff5139c564bc6ecfd8635d570f55f1c82b00453710"
+vms = ["*"]

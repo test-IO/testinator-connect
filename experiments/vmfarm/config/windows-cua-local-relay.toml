@@ -1,4 +1,4 @@
-# Runs the daemon against a relay on the same VM (relay-dev.toml), to test the tunnel on Windows.
+# Runs the daemon against a relay on the same VM (relay-vm.toml), to test the tunnel on Windows.
 listen = "127.0.0.1:7410"
 idle_timeout_secs = 1800
 log_dir = 'logs'
@@ -10,5 +10,5 @@ args = ["mcp"]
 [relay]
 address = "127.0.0.1:7443"
 tls = false
-vm_id = "dev-mac"
+vm_id = "local-vm"
 key = "dev-daemon-key"
