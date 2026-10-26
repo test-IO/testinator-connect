@@ -6,6 +6,7 @@ log_dir = 'logs'
 [servers.cua_driver]
 command = "cua-driver"
 args = ["mcp"]
+revive = { refusal_code = "session_ended", tool = "start_session" }
 
 [relay]
 address = "127.0.0.1:7443"

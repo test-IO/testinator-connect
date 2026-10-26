@@ -5,6 +5,7 @@ log_dir = 'logs'
 [servers.cua_driver]
 command = "cua-driver"
 args = ["mcp"]
+revive = { refusal_code = "session_ended", tool = "start_session" }
 
 # Uncomment to open a tunnel to a relay. Set the key with the VMFARMD_RELAY_KEY variable,
 # or with key_file, so it doesn't sit in this file.
