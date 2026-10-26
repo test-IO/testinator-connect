@@ -17,6 +17,7 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `start-vm-relay.ps1` | Test setup: runs the relay on this VM and opens TCP 7420 for the EPAM VPN, so a Mac on the VPN can call the VM through the relay. |
 | `cleanup-stray-install.ps1` | One-off: removes the service installed under `C:\User\...` by a typo, then reinstalls with the remote-relay config and runs `diagnose.ps1`. |
 | `fetch-relay-files.ps1` | Fills in `windows-cua-remote-relay.toml` from this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
+| `release-to-console.ps1` | Leaves RDP without locking the session: moves it to the console, then closes its own elevated window. Use it instead of closing the RDP window. |
 | `run.ps1` | Starts the daemon by hand in the current session, without the service. |
 | `smoke.ps1` | Calls the daemon's local API: starts a session, calls `get_screen_size`, ends the session. |
 | `relay-smoke.ps1` | The same check, but through the relay, the way tooling will call it. |
@@ -46,7 +47,7 @@ What happens:
 - `vmfarmd.exe` and the config are copied to `-InstallDir`, along with `relay-cert.pem` and `relay-key.txt` if they sit next to the config. The service runs that copy, so updating this folder never fights a running service.
 - The `vmfarmd` service is registered to start at boot as LocalSystem, restart on failure, and it is started now.
 - The service waits for the logged-on desktop session and starts `vmfarmd desktop` hidden inside it, as that user. It restarts it whenever it exits.
-- **Leave RDP with `.\scripts\windows\prep-cua-session.ps1`** (elevated) instead of closing the window. It moves your session to the console while you're still connected, so Windows never locks it.
+- **Leave RDP with `.\experiments\vmfarm\release-to-console.ps1`** (elevated) instead of closing the window. It moves your session to the console while you're still connected, so Windows never locks it.
   - If you just close the RDP window, Windows locks the session. The console then shows the sign-in screen, and cua-driver can't capture or drive it until someone signs in over RDP again.
   - The service still moves a disconnected session back to the console, but it can't undo the lock.
 - `get_vm_info` and `/health` report `session_locked`. A failed cua-driver call while the session is locked says so in its result.
