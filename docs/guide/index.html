@@ -851,24 +851,32 @@
 
           <h3>Windows: allow the installer to run</h3>
           <p>
-            The Windows installer isn't code-signed yet, so Windows SmartScreen is
-            likely to stop it with <em>"Windows protected your PC"</em>. Click
-            <strong>More info</strong>, then <strong>Run anyway</strong>.
+            The installer is signed by <strong>test IO GmbH</strong>. Windows SmartScreen
+            may still stop it with <em>"Windows protected your PC"</em>, because it
+            doesn't know the app yet. Click <strong>More info</strong>, check that the
+            publisher is <strong>test IO GmbH</strong>, then click
+            <strong>Run anyway</strong>.
           </p>
           <figure class="guide-figure">
             <img
               src="assets/images/windows-smartscreen.png"
               alt="Windows SmartScreen prompt Windows protected your PC, with the More info link highlighted"
             />
-            <figcaption>SmartScreen stops the installer because it isn't signed yet: click <strong>More info</strong>.</figcaption>
+            <figcaption>SmartScreen doesn't recognise the app yet: click <strong>More info</strong>.</figcaption>
           </figure>
           <figure class="guide-figure">
             <img
               src="assets/images/windows-smartscreen-run-anyway.png"
-              alt="The same SmartScreen prompt after More info: the installer's file name, Unknown publisher, and the highlighted Run anyway button"
+              alt="The same SmartScreen prompt after More info: app Agentic-QA-Connect-Setup-win-x64.exe, publisher test IO GmbH, and the highlighted Run anyway button"
             />
-            <figcaption>The prompt now names the installer: click <strong>Run anyway</strong>.</figcaption>
+            <figcaption>The publisher reads <strong>test IO GmbH</strong>: click <strong>Run anyway</strong>.</figcaption>
           </figure>
+          <div class="callout">
+            This warning is temporary. SmartScreen trusts an app once enough people
+            have installed it; as more teams install Agentic QA Connect, the warning
+            stops appearing and the installer starts right away. If the publisher is
+            anything other than <strong>test IO GmbH</strong>, don't run the file.
+          </div>
 
           <h3>Windows: run the installer</h3>
           <ol>
