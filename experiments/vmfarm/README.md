@@ -46,7 +46,10 @@ What happens:
 - `vmfarmd.exe` and the config are copied to `-InstallDir`, along with `relay-cert.pem` and `relay-key.txt` if they sit next to the config. The service runs that copy, so updating this folder never fights a running service.
 - The `vmfarmd` service is registered to start at boot as LocalSystem, restart on failure, and it is started now.
 - The service waits for the logged-on desktop session and starts `vmfarmd desktop` hidden inside it, as that user. It restarts it whenever it exits.
-- After an RDP disconnect, the service moves the session back to the console itself, which replaces the manual `tscon`. It acts on Windows' disconnect event, about a second later and before Windows locks the session. An RDP reconnect never triggers it.
+- **Leave RDP with `.\scripts\windows\prep-cua-session.ps1`** (elevated) instead of closing the window. It moves your session to the console while you're still connected, so Windows never locks it.
+  - If you just close the RDP window, Windows locks the session. The console then shows the sign-in screen, and cua-driver can't capture or drive it until someone signs in over RDP again.
+  - The service still moves a disconnected session back to the console, but it can't undo the lock.
+- `get_vm_info` and `/health` report `session_locked`. A failed cua-driver call while the session is locked says so in its result.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
 
 Check it:
