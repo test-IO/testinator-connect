@@ -376,6 +376,8 @@ When a server config uses `command: "python"`, `"python3"`, or `"uv"`, the app a
 2. On first use of a Python server, `uv` downloads and caches the required Python version silently (~50 MB, one-time).
 3. Subsequent launches are instant.
 
+**windows-mcp is pinned to Python 3.14** (`--python 3.14` is injected for `uvx`/`uv ... run` when the args name `windows-mcp`, unless you pass your own `--python`/`-p`). windows-mcp only requires `>=3.14`, so without the pin `uv` picks the newest interpreter (3.15+), where dependencies such as `pyyaml` have no wheels yet and fall back to a source build that fails with "Microsoft Visual C++ 14.0 or greater is required". Drop the pin once those wheels exist.
+
 The substitution logic lives in [`src/main/uv.ts`](src/main/uv.ts). Platform binaries are stored in `resources/` and copied into the app bundle by electron-builder via `extraResources`.
 
 ---
