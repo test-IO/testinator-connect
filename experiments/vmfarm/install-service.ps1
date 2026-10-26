@@ -1,12 +1,12 @@
 # Installs vmfarmd as a Windows Service, or updates it when it is already installed.
 #
 # The service runs a copy of vmfarmd.exe in -InstallDir, never bin\ in this folder, so
-# updating these files does not fight a running service. Put -InstallDir inside a folder
-# the endpoint protection (SentinelOne) allows, because vmfarmd.exe starts cua-driver and ffmpeg.
+# updating these files does not fight a running service. -InstallDir defaults to
+# vmfarmd-service in the checkout root; keep it inside a folder the endpoint protection
+# (SentinelOne) allows, because vmfarmd.exe starts cua-driver and ffmpeg.
 #Requires -RunAsAdministrator
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$InstallDir,
+    [string]$InstallDir = (Join-Path ([IO.Path]::GetFullPath("$PSScriptRoot\..\..")) 'vmfarmd-service'),
     [string]$Config = "$PSScriptRoot\config\windows-cua.toml"
 )
 $ErrorActionPreference = 'Stop'

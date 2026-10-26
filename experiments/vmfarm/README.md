@@ -12,6 +12,8 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `config/relay-dev.toml` | Relay config with dev keys: daemon key `dev-daemon-key`, tenant token `dev-tenant-token`. |
 | `install-service.ps1` | Installs, or updates, vmfarmd as a Windows Service that starts at boot. |
 | `uninstall-service.ps1` | Removes the service. |
+| `diagnose.ps1` | Prints the service status, vmfarmd and cua-driver processes with their parents, the installed config, whether the relay is reachable, and the end of both logs. |
+| `cleanup-stray-install.ps1` | One-off: removes the service installed under `C:\User\...` by a typo, then reinstalls with the remote-relay config and runs `diagnose.ps1`. |
 | `fetch-relay-files.ps1` | Fills in `windows-cua-remote-relay.toml` from this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
 | `run.ps1` | Starts the daemon by hand in the current session, without the service. |
 | `smoke.ps1` | Calls the daemon's local API: starts a session, calls `get_screen_size`, ends the session. |
@@ -30,13 +32,12 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 
 ## Run as a service (starts at boot)
 
-**Pick the install folder with SentinelOne in mind.** The service runs `vmfarmd.exe` from `-InstallDir`, and that process starts `cua-driver` (and later ffmpeg). Today only `C:\Users\jiayi_zheng\Downloads\testinator-connect\testinator-connect-main` is excluded in SentinelOne, so install inside it.
+**The install folder matters for SentinelOne.** The service runs `vmfarmd.exe` from `-InstallDir`, and that process starts `cua-driver` (and later ffmpeg). `-InstallDir` defaults to `vmfarmd-service` in the checkout root, which on the test VM is the SentinelOne-excluded `C:\Users\jiayi_zheng\Downloads\testinator-connect\testinator-connect-main`.
 
 From an elevated PowerShell:
 ```powershell
-$dir = 'C:\Users\jiayi_zheng\Downloads\testinator-connect\testinator-connect-main\vmfarmd-service'
-.\experiments\vmfarm\install-service.ps1 -InstallDir $dir                       # local API only
-.\experiments\vmfarm\install-service.ps1 -InstallDir $dir -Config .\experiments\vmfarm\config\windows-cua-remote-relay.toml
+.\experiments\vmfarm\install-service.ps1                       # local API only
+.\experiments\vmfarm\install-service.ps1 -Config .\experiments\vmfarm\config\windows-cua-remote-relay.toml
 ```
 
 What happens:
@@ -48,10 +49,8 @@ What happens:
 
 Check it:
 ```powershell
-Get-Service vmfarmd
-Get-Process vmfarmd                     # two processes: the service and the desktop process
+.\experiments\vmfarm\diagnose.ps1
 .\experiments\vmfarm\smoke.ps1
-Get-Content "$dir\logs\vmfarmd-service.*" -Tail 20
 ```
 
 Then reboot the VM and check again without logging in. `smoke.ps1` should work as soon as automatic logon has finished.
