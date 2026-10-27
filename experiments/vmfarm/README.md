@@ -54,6 +54,9 @@ What happens:
 - `get_frame` (MCP tool) and `GET /frame` return the current screen from vmfarmd's own Windows Graphics Capture, without going through cua-driver.
   - Parameters: `format` (`png`, the default and lossless, or `jpeg`, which is smaller), `quality`, `max_width`, and `since_id` with `wait_ms` to wait for the screen to change.
   - An unchanged screen requested again with the same options is sent from a cache.
+- `GET /stream` is a live H.264 video of the screen, as fragmented MP4. Each viewer gets its own `ffmpeg`, which must be on the auto-logon user's `PATH`.
+  - The relay serves a viewer page: `http://<relay>:7420/viewer?vm=<vm id>#token=<tenant token>`.
+  - Settings, in the daemon config: `[stream]` with `fps` (default 10), `max_width` (default 1920), `crf` (default 28), and `ffmpeg` (path).
   - Capture starts on the first request and stops after 2 minutes without one.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
 
