@@ -16,7 +16,7 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `diagnose.ps1` | Prints the service status, vmfarmd and cua-driver processes with their parents, the installed config, whether the relay is reachable, and the end of both logs. |
 | `start-vm-relay.ps1` | Test setup: runs the relay on this VM and opens TCP 7420 for the EPAM VPN, so a Mac on the VPN can call the VM through the relay. |
 | `cleanup-stray-install.ps1` | One-off: removes the service installed under `C:\User\...` by a typo, then reinstalls with the remote-relay config and runs `diagnose.ps1`. |
-| `fetch-relay-files.ps1` | Fills in `windows-cua-remote-relay.toml` from this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
+| `fetch-relay-files.ps1` | Writes `windows-cua-remote-relay.local.toml` (git-ignored) from the template and this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
 | `release-to-console.ps1` | Leaves RDP without locking the session: moves it to the console, then closes its own elevated window. Use it instead of closing the RDP window. |
 | `run.ps1` | Starts the daemon by hand in the current session, without the service. |
 | `smoke.ps1` | Calls the daemon's local API: starts a session, calls `get_screen_size`, ends the session. |
@@ -100,9 +100,9 @@ gcloud compute instances add-metadata windows-vmfarm --zone europe-west3-c --pro
 
 On the VM:
 ```powershell
-.\experiments\vmfarm\fetch-relay-files.ps1      # writes the cert and key, sets address and vm_id
+.\experiments\vmfarm\fetch-relay-files.ps1      # writes the cert, the key and config\windows-cua-remote-relay.local.toml
 ```
-Then install the service with `-Config ...\windows-cua-remote-relay.toml`, as shown above.
+Then install the service with `-Config .\experiments\vmfarm\config\windows-cua-remote-relay.local.toml`.
 
 Afterwards, remove the key from the metadata again:
 ```bash

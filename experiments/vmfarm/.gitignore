@@ -1,3 +1,4 @@
 /logs/
 config/relay-key.txt
 config/relay-cert.pem
+config/*.local.toml
