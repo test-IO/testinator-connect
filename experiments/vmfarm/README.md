@@ -57,8 +57,8 @@ What happens:
   - An unchanged screen requested again with the same options is sent from a cache.
 - `GET /stream` is a live H.264 video of the screen, as fragmented MP4. Each viewer gets its own `ffmpeg`, which must be on the auto-logon user's `PATH`.
   - The relay serves a viewer page: `http://<relay>:7420/viewer?vm=<vm id>#token=<tenant token>`.
-  - Settings, in the daemon config: `[stream]` with `fps` (default 10), `max_width` (default 1920), `crf` (default 28), and `ffmpeg` (path). A request can override `fps` and `max_width`, for example `/stream?fps=30&max_width=1280`.
-  - `[capture] max_fps` (default 30) caps how often a changed screen is captured.
+  - Settings, in the daemon config: `[stream]` with `fps` (default 20), `max_width` (default 1280), `crf` (default 28), and `ffmpeg` (path). A request can override `fps` and `max_width`, for example `/stream?fps=30&max_width=1280`.
+  - `[capture] idle_fps` (default 10) is the capture rate while no stream is open; an open stream raises it to its own `fps`, up to `[capture] max_fps` (default 30).
   - Each new frame goes to ffmpeg right away, as one fragment, and ffmpeg runs at below-normal priority.
   - Capture starts on the first request and stops after 2 minutes without one.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
