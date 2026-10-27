@@ -14,6 +14,7 @@ These are prebuilt binaries for trying the VM farm daemon on a Windows VM. The s
 | `install-service.ps1` | Installs, or updates, vmfarmd as a Windows Service that starts at boot. |
 | `uninstall-service.ps1` | Removes the service. |
 | `diagnose.ps1` | Prints the service status, vmfarmd and cua-driver processes with their parents, the installed config, whether the relay is reachable, and the end of both logs. |
+| `install-vm-relay-task.ps1` | Test setup, run once: installs the service with a tunnel to a relay on this VM, and runs that relay as a hidden SYSTEM task at every boot. After a reboot, everything comes back without a login. |
 | `start-vm-relay.ps1` | Test setup: runs the relay on this VM and opens TCP 7420 for the EPAM VPN, so a Mac on the VPN can call the VM through the relay. |
 | `cleanup-stray-install.ps1` | One-off: removes the service installed under `C:\User\...` by a typo, then reinstalls with the remote-relay config and runs `diagnose.ps1`. |
 | `fetch-relay-files.ps1` | Writes `windows-cua-remote-relay.local.toml` (git-ignored) from the template and this VM's GCP metadata: certificate, key, relay address and `vm_id`. |
@@ -75,6 +76,14 @@ To update, run `install-service.ps1` again with the same `-InstallDir`. To chang
 **Note for later:** a service running as LocalSystem from a folder the user can write to is acceptable on a test VM. For the farm, the binary belongs in an admin-only folder such as `C:\Program Files\VmFarmDaemon`, signed, with the SentinelOne exclusion based on the signature or hash.
 
 ## Relay on this VM, called from a Mac on the EPAM VPN
+
+**In the background, started at boot (recommended):** run this once, from an elevated PowerShell:
+```powershell
+.\experiments\vmfarm\install-vm-relay-task.ps1
+```
+Run it again after `git pull` to update both the daemon and the relay. The relay logs to `vmfarmd-service\relay\relay.log`.
+
+**In a window, for a quick try:** use `start-vm-relay.ps1`, described below.
 
 The VM's GCP firewall allows all ports from the EPAM VPN addresses, so a Mac on the VPN can reach a relay running on the VM. From an elevated PowerShell:
 ```powershell
