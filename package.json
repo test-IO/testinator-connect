@@ -1,6 +1,6 @@
 {
   "name": "agentic-qa-connect",
-  "version": "0.0.99",
+  "version": "0.0.100",
   "description": "Agentic QA - connect: desktop UI for configuring and monitoring Agentic QA connect",
   "author": "test IO GmbH",
   "main": "./out/main/index.js",
