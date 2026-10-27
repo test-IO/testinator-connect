@@ -51,6 +51,9 @@ What happens:
   - If you just close the RDP window, Windows locks the session. The console then shows the sign-in screen, and cua-driver can't capture or drive it until someone signs in over RDP again.
   - The service still moves a disconnected session back to the console, but it can't undo the lock.
 - `get_vm_info` and `/health` report `session_locked`. A failed cua-driver call while the session is locked says so in its result.
+- `get_frame` (MCP tool) and `GET /frame` return the current screen from vmfarmd's own Windows Graphics Capture, without going through cua-driver.
+  - Parameters: `format` (`jpeg` or `png`), `quality`, `max_width`, and `since_id` with `wait_ms` to wait for the screen to change.
+  - Capture starts on the first request and stops after 2 minutes without one.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
 
 Check it:
