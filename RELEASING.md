@@ -60,9 +60,18 @@ One-time setup on that computer:
   AIRBRAKE_PROJECT_KEY=...
   ```
 
-Each release: plug in the token and run `npm run release:win`. The script finds the draft,
-builds its exact commit, signs the app, uninstaller and installer, uploads them with
-`latest.yml`, checks the signature and publishes the draft once the macOS files are there.
+Each release goes through three stages:
+
+1. **Draft.** Merging a version bump makes CI create a draft release `vX.Y.Z` and upload the
+   signed macOS files to it. Wait for the `Release` workflow to finish.
+2. **Sign locally.** On the computer with the token, plug it in and run
+   `npm run release:win`. The script finds the draft, builds its exact commit, signs the app,
+   uninstaller and installer with the token, checks the signature and uploads the installer
+   with `latest.yml` to the draft.
+3. **Publish.** Once the draft has both the macOS and Windows files, the same script
+   publishes it. It becomes `releases/latest` and running apps update to it.
+
+If the script stops before step 3, the draft stays unpublished: fix the cause and run it again.
 
 Never sign an installer by hand and swap it into a release: signing changes the file, so it
 no longer matches `latest.yml` and Windows updates fail. Never publish an unsigned Windows
