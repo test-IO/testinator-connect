@@ -11,6 +11,9 @@ export const IPC_TO_MAIN = {
   GET_INSTALLATION_ID: 'installation:get',
   APP_GET_VERSION: 'app:getVersion',
   APP_GET_PLATFORM: 'app:getPlatform',
+  UPDATE_GET_STATE: 'update:get-state',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_INSTALL: 'update:install',
 } as const
 
 export const IPC_TO_RENDERER = {
@@ -25,6 +28,7 @@ export const IPC_TO_RENDERER = {
   RESOURCE_READ_UPDATED: 'resource-read:updated',
   PLAYWRIGHT_INSTALL_PROGRESS: 'playwright:install-progress',
   DEEP_LINK_CONFIG: 'deep-link:config',
+  UPDATE_STATE: 'update:state',
 } as const
 
 export interface DeepLinkConfigPayload {
@@ -140,3 +144,21 @@ export interface AppConfig {
   display_name?: string
   servers: Record<string, ServerConfig>
 }
+
+export type UpdateStatus =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdateState {
+  status: UpdateStatus
+  version?: string
+  percent?: number
+  message?: string
+}
+
+export type InstallDecision = { ok: true } | { ok: false; reason: string }

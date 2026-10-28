@@ -9,6 +9,8 @@ import type {
   ResourceInfo,
   ResourceReadRecord,
   DeepLinkConfigPayload,
+  UpdateState,
+  InstallDecision,
 } from '../shared/ipc-types'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
 
@@ -64,5 +66,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onDeepLinkConfig: (cb: (payload: DeepLinkConfigPayload) => void): void => {
     ipcRenderer.on(IPC_TO_RENDERER.DEEP_LINK_CONFIG, (_e, payload) => cb(payload))
+  },
+  getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke(IPC_TO_MAIN.UPDATE_GET_STATE),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke(IPC_TO_MAIN.UPDATE_CHECK),
+  installUpdate: (): Promise<InstallDecision> => ipcRenderer.invoke(IPC_TO_MAIN.UPDATE_INSTALL),
+  onUpdateState: (cb: (state: UpdateState) => void): void => {
+    ipcRenderer.on(IPC_TO_RENDERER.UPDATE_STATE, (_e, payload) => cb(payload))
   },
 })

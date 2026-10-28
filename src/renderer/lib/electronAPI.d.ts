@@ -8,6 +8,8 @@ import type {
   ResourceInfo,
   ResourceReadRecord,
   DeepLinkConfigPayload,
+  UpdateState,
+  InstallDecision,
 } from '../../shared/ipc-types'
 
 declare global {
@@ -36,6 +38,10 @@ declare global {
       installPlaywrightBrowser: (browser: string, sudoPassword?: string) => Promise<void>
       onPlaywrightInstallProgress: (cb: (line: string) => void) => void
       onDeepLinkConfig: (cb: (payload: DeepLinkConfigPayload) => void) => void
+      getUpdateState: () => Promise<UpdateState>
+      checkForUpdates: () => Promise<void>
+      installUpdate: () => Promise<InstallDecision>
+      onUpdateState: (cb: (state: UpdateState) => void) => void
     }
   }
 }
