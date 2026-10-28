@@ -55,12 +55,26 @@ What happens:
 - `get_frame` (MCP tool) and `GET /frame` return the current screen from vmfarmd's own Windows Graphics Capture, without going through cua-driver.
   - Parameters: `format` (`png`, the default and lossless, or `jpeg`, which is smaller), `quality`, `max_width`, and `since_id` with `wait_ms` to wait for the screen to change.
   - An unchanged screen requested again with the same options is sent from a cache.
-- `GET /stream` is a live H.264 video of the screen, as fragmented MP4. Each viewer gets its own `ffmpeg`, which must be on the auto-logon user's `PATH`.
+- `GET /stream` is a live H.264 video of the screen, as fragmented MP4. Each request gets its own `ffmpeg`, which must be on the auto-logon user's `PATH`.
+  - The relay opens it once per VM and shares it: every viewer of `/vms/<vm id>/relay/stream` and every relay recording uses that one stream. A viewer that joins late starts at the last keyframe.
   - The relay serves a viewer page: `http://<relay>:7420/viewer?vm=<vm id>#token=<tenant token>`.
   - Settings, in the daemon config: `[stream]` with `fps` (default 20), `max_width` (default 1280), `crf` (default 28), and `ffmpeg` (path). A request can override `fps` and `max_width`, for example `/stream?fps=30&max_width=1280`.
   - `[capture] idle_fps` (default 10) is the capture rate while no stream is open; an open stream raises it to its own `fps`, up to `[capture] max_fps` (default 30).
   - Each new frame goes to ffmpeg right away, as one fragment, and ffmpeg runs at below-normal priority.
   - Capture starts on the first request and stops after 2 minutes without one.
+- There are two kinds of recordings:
+
+  | | VM recording | Relay recording |
+  |---|---|---|
+  | Start | MCP `start_recording` / `stop_recording`, or `POST /vms/<vm id>/recordings` and `POST …/recordings/<id>/stop` | `POST /vms/<vm id>/relay/recordings` (body `{"format": "mp4" \| "webm", "max_seconds": …}`) and `POST …/relay/recordings/<id>/stop` |
+  | Made by | Its own ffmpeg on the VM, at full screen size (`[recording]` in the daemon config: `fps` 15, `crf` 23, `preset` ultrafast) | The relay, from the shared live stream (1280 px, crf 28) |
+  | VM CPU | One more encoder while it runs | Nothing beyond the live stream |
+  | Tunnel drop | No gap | A gap; `gaps` in its info says when |
+  | Download | `GET /vms/<vm id>/recordings/<id>/file` | `GET /vms/<vm id>/relay/recordings/<id>/file` |
+
+  - Both stop by themselves after `max_seconds` (default 3600) and are deleted after 24 hours. `GET …/recordings` lists them and `DELETE …/recordings/<id>` deletes one.
+  - VM recordings are written to `recordings\` next to the installed config. The file stays playable up to its last 2 seconds if vmfarmd is killed.
+  - A relay recording joins its parts with ffmpeg when it stops. mp4 is copied without encoding; webm is encoded on the relay.
 - Stopping the service ends `vmfarmd desktop` and every cua-driver it started.
 
 Check it:

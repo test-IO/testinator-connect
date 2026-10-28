@@ -9,3 +9,5 @@ key_sha256 = "b7c18c5412ead850fc573d48cde455c05dbef43920fdff3c3731eb2552a8bdc8"
 [tenants.dev]
 token_sha256 = "f727ccd2e248abc4d738e0ff5139c564bc6ecfd8635d570f55f1c82b00453710"
 vms = ["*"]
+
+# install-vm-relay-task.ps1 appends a [recordings] section with the full path to ffmpeg.

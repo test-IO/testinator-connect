@@ -39,6 +39,14 @@ New-Item -ItemType Directory -Force $relayDir | Out-Null
 Copy-Item "$PSScriptRoot\bin\vmfarm-relay.exe" $relayExe -Force
 Copy-Item "$PSScriptRoot\config\relay-vm.toml" $relayConfig -Force
 
+# The relay runs as SYSTEM, whose PATH may not have ffmpeg; it joins and encodes the relay's recordings.
+$ffmpeg = (Get-Command ffmpeg -ErrorAction SilentlyContinue).Source
+if ($ffmpeg) {
+    Add-Content $relayConfig "`n[recordings]`nffmpeg = '$ffmpeg'"
+} else {
+    Write-Warning 'ffmpeg is not on PATH; relay recordings will fail when they stop.'
+}
+
 $command = '/c ""{0}" serve --config "{1}" >> "{2}" 2>&1"' -f $relayExe, $relayConfig, $relayLog
 $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument $command -WorkingDirectory $relayDir
 $trigger = New-ScheduledTaskTrigger -AtStartup
