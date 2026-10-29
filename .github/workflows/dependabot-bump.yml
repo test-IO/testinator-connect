@@ -11,15 +11,14 @@ permissions:
   contents: write
   actions: write
 
-concurrency:
-  group: dependabot-bump
-  cancel-in-progress: false
-
 jobs:
   bump:
     name: Bump patch version
     if: github.event.head_commit.author.name == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    concurrency:
+      group: dependabot-bump
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -52,7 +51,15 @@ jobs:
 
             version=$(node scripts/bump-version.mjs . "$latest")
             if [ -z "$version" ]; then
-              echo "::notice::No bump needed: package.json is above the latest release (${latest:-none})."
+              current=$(node -p "require('./package.json').version")
+              if [ -z "$latest" ]; then
+                echo "::notice::No release exists yet, so there is nothing to bump."
+              else
+                echo "::notice::No bump needed: $current is above the latest release $latest."
+              fi
+              if gh release list --repo "$GITHUB_REPOSITORY" --json tagName,isDraft --jq ".[] | select(.isDraft and .tagName == \"v$current\")" | grep -q .; then
+                echo "::warning::A draft of v$current is open. Release replaces it, so run npm run release:win again."
+              fi
               exit 0
             fi
 
