@@ -1,0 +1,50 @@
+name: Dependabot version bump
+
+# A Dependabot PR only changes dependencies, and a release needs a new version in package.json.
+# pull_request_target gives the token write access; only the base branch's script runs.
+on:
+  pull_request_target:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependabot-bump-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    name: Bump patch version
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: base
+
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: base/.nvmrc
+
+      - name: Bump when the version is not above the latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)
+          node base/scripts/bump-version.mjs pr "$latest"
+
+      - name: Commit the bump
+        working-directory: pr
+        run: |
+          if git diff --quiet; then exit 0; fi
+          version=$(node -p "require('./package.json').version")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to $version"
+          git push

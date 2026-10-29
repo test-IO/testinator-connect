@@ -21,6 +21,10 @@ Commit `package.json` and `package-lock.json` with the PR. Then:
 
 Until step 2 nobody gets the update: a draft is invisible to apps and the download page.
 
+Dependabot security PRs bump the patch version themselves: when `package.json` is not above the
+latest release, the `Dependabot version bump` workflow commits the next patch to the PR branch.
+Merging the PR then releases like any other bump.
+
 Merges that keep the same version (docs, CI, landing page) release nothing.
 
 The workflow fails instead of releasing when the version:
