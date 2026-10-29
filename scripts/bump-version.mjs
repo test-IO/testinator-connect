@@ -1,18 +1,10 @@
 // Usage: node scripts/bump-version.mjs <project-dir> [latest-tag]
 // Raises the patch version when it is not above the latest release, so a merge releases.
+// Prints the new version, or nothing when no bump is needed.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-const VERSION = /^(\d+)\.(\d+)\.(\d+)$/
-const CORE = /^v?(\d+)\.(\d+)\.(\d+)/
-
-function compareCore(a, b) {
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i] - b[i]
-  }
-  return 0
-}
+import { CORE, VERSION, compareCore } from './release-plan.mjs'
 
 // Returns the version to set, or null when the current one is already above the latest release.
 export function nextPatchVersion({ version, latestTag }) {
@@ -26,22 +18,25 @@ export function nextPatchVersion({ version, latestTag }) {
   return `${latestCore[0]}.${latestCore[1]}.${latestCore[2] + 1}`
 }
 
-function writeVersion(file, version) {
-  const json = JSON.parse(readFileSync(file, 'utf8'))
-  json.version = version
-  if (json.packages?.['']) json.packages[''].version = version
-  writeFileSync(file, `${JSON.stringify(json, null, 2)}\n`)
+// Sets the version in package.json and package-lock.json; returns it, or null when nothing changed.
+export function bumpProject(dir, latestTag) {
+  const files = ['package.json', 'package-lock.json'].map((name) => {
+    const path = join(dir, name)
+    return { path, json: JSON.parse(readFileSync(path, 'utf8')) }
+  })
+  const next = nextPatchVersion({ version: files[0].json.version, latestTag })
+  if (!next) return null
+
+  for (const { path, json } of files) {
+    json.version = next
+    if (json.packages?.['']) json.packages[''].version = next
+    writeFileSync(path, `${JSON.stringify(json, null, 2)}\n`)
+  }
+  return next
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [dir, latestTag = ''] = process.argv.slice(2)
-  const { version } = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
-  const next = nextPatchVersion({ version, latestTag })
-  if (!next) {
-    console.log(`${version} is already above ${latestTag || 'the latest release'}; nothing to bump.`)
-  } else {
-    writeVersion(join(dir, 'package.json'), next)
-    writeVersion(join(dir, 'package-lock.json'), next)
-    console.log(`Bumped ${version} to ${next}.`)
-  }
+  const next = bumpProject(dir, latestTag)
+  if (next) console.log(next)
 }
