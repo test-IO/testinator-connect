@@ -21,6 +21,12 @@ Commit `package.json` and `package-lock.json` with the PR. Then:
 
 Until step 2 nobody gets the update: a draft is invisible to apps and the download page.
 
+A merged Dependabot PR only changes dependencies. The `Dependabot version bump` workflow then commits
+the next patch to `main` if `package.json` is not above the latest release, and starts the `Release`
+workflow (the repo allows squash merges only; that keeps the author `dependabot[bot]`). If a draft of that version is still open, the merge replaces it, so wait for
+`npm run release:win` to finish before merging. If the job fails after the push, start the release by hand:
+`gh workflow run release.yml --ref main`.
+
 Merges that keep the same version (docs, CI, landing page) release nothing.
 
 The workflow fails instead of releasing when the version:

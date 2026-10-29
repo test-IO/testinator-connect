@@ -1,7 +1,7 @@
-const VERSION = /^(\d+)\.(\d+)\.(\d+)$/
-const CORE = /^v?(\d+)\.(\d+)\.(\d+)/
+export const VERSION = /^(\d+)\.(\d+)\.(\d+)$/
+export const CORE = /^v?(\d+)\.(\d+)\.(\d+)/
 
-function compareCore(a, b) {
+export function compareCore(a, b) {
   for (let i = 0; i < 3; i++) {
     if (a[i] !== b[i]) return a[i] - b[i]
   }

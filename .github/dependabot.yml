@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Security updates only: 0 turns off the scheduled version updates, not the security ones.
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ['*']
+        # Major Electron jumps are reviewed on their own.
+        exclude-patterns: ['electron']

@@ -1,0 +1,83 @@
+name: Dependabot version bump
+
+# A merged Dependabot PR only changes dependencies, and a release needs a new version in package.json.
+# The repo allows squash merges only, so the commit author stays dependabot[bot].
+# Pushes made with GITHUB_TOKEN start no workflows, so Release is dispatched explicitly.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  bump:
+    name: Bump patch version
+    if: github.event.head_commit.author.name == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: dependabot-bump
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Bump when the version is not above the latest release, then start the release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          err=$(mktemp)
+
+          for attempt in 1 2 3; do
+            git fetch --quiet origin main
+            git reset --quiet --hard origin/main
+
+            if latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>"$err"); then
+              :
+            elif grep -q "release not found" "$err"; then
+              latest=""
+            else
+              cat "$err" >&2
+              exit 1
+            fi
+
+            version=$(node scripts/bump-version.mjs . "$latest")
+            if [ -z "$version" ]; then
+              current=$(node -p "require('./package.json').version")
+              if [ -z "$latest" ]; then
+                echo "::notice::No release exists yet, so there is nothing to bump."
+              else
+                echo "::notice::No bump needed: $current is above the latest release $latest."
+              fi
+              if gh release list --repo "$GITHUB_REPOSITORY" --json tagName,isDraft --jq ".[] | select(.isDraft and .tagName == \"v$current\")" | grep -q .; then
+                echo "::warning::A draft of v$current is open. Release replaces it, so run npm run release:win again."
+              fi
+              exit 0
+            fi
+
+            git commit --quiet -am "Bump version to $version"
+            if git push origin main; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Could not push the bump to main."
+              exit 1
+            fi
+          done
+
+          for attempt in 1 2 3; do
+            if gh workflow run release.yml --ref main; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Version $version is on main but Release was not started. Run: gh workflow run release.yml --ref main"
+          exit 1
