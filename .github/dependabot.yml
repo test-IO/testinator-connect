@@ -9,8 +9,6 @@ updates:
     groups:
       security:
         applies-to: security-updates
-        # Major updates come as separate PRs and are reviewed on their own.
-        update-types: ['patch', 'minor']
         patterns: ['*']
         # Electron updates are tested by hand.
         exclude-patterns: ['electron']
