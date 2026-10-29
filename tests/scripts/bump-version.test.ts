@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -61,5 +62,50 @@ describe('bumpProject', () => {
     writeFileSync(join(dir, 'package.json'), `${JSON.stringify({ version: '0.1.0' })}\n`)
     expect(() => bumpProject(dir, 'v0.1.0')).toThrow()
     expect(read(dir, 'package.json').version).toBe('0.1.0')
+  })
+
+  it('sets both versions when the lockfile root differs from package.json', () => {
+    const dir = project('0.1.0')
+    const lock = read(dir, 'package-lock.json')
+    lock.version = '0.0.1'
+    lock.packages[''].version = '0.0.1'
+    writeFileSync(join(dir, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`)
+    expect(bumpProject(dir, 'v0.1.0')).toBe('0.1.1')
+    expect(read(dir, 'package-lock.json').version).toBe('0.1.1')
+    expect(read(dir, 'package-lock.json').packages[''].version).toBe('0.1.1')
+  })
+
+  it('handles a lockfile without a root package entry', () => {
+    const dir = project('0.1.0')
+    const lock = read(dir, 'package-lock.json')
+    delete lock.packages['']
+    writeFileSync(join(dir, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`)
+    expect(bumpProject(dir, 'v0.1.0')).toBe('0.1.1')
+    expect(read(dir, 'package-lock.json').version).toBe('0.1.1')
+  })
+})
+
+describe('bump-version CLI', () => {
+  const script = join(__dirname, '../../scripts/bump-version.mjs')
+  const run = (dir: string, latest: string) => execFileSync('node', [script, dir, latest], { encoding: 'utf8' })
+
+  function project(version: string) {
+    const dir = mkdtempSync(join(tmpdir(), 'bump-cli-'))
+    const lock = { version, lockfileVersion: 3, packages: { '': { version } } }
+    writeFileSync(join(dir, 'package.json'), `${JSON.stringify({ version }, null, 2)}\n`)
+    writeFileSync(join(dir, 'package-lock.json'), `${JSON.stringify(lock, null, 2)}\n`)
+    return dir
+  }
+
+  it('prints the new version when it bumps', () => {
+    expect(run(project('0.1.0'), 'v0.1.0')).toBe('0.1.1\n')
+  })
+
+  it('prints nothing when there is nothing to bump', () => {
+    expect(run(project('0.1.1'), 'v0.1.0')).toBe('')
+  })
+
+  it('prints nothing without a latest release', () => {
+    expect(run(project('0.1.0'), '')).toBe('')
   })
 })
