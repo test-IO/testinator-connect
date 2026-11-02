@@ -8,7 +8,7 @@ function getWindowIcon(): string | undefined {
   return undefined
 }
 import { execSync } from 'child_process'
-import { initAirbrake } from './airbrake'
+import { initAirbrake, reportMcpError } from './airbrake'
 import { loadConfig, saveConfig, getConfigPath, getInstallationId } from './config'
 import { Logger } from './service/logger'
 import { ConnectService } from './service/connect-service'
@@ -242,6 +242,7 @@ function registerIpcHandlers(): void {
         const info = await discoverServerTools(name, conf)
         return { ok: true, toolCount: info.tools.length }
       } catch (e) {
+        reportMcpError(e, { operation: 'server_test', serverName: name, conf })
         return { ok: false, toolCount: 0, error: e instanceof Error ? e.message : String(e) }
       }
     },

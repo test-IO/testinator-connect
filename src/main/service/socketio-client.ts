@@ -11,6 +11,7 @@ import {
 import { sessionManager } from './session-manager'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
+import { reportMcpError } from '../airbrake'
 
 // After the final attempt fails, the machine stays disconnected until the user
 // restarts the app. The limit therefore has to cover a Gateway restart, not
@@ -18,6 +19,19 @@ import type { Logger } from './logger'
 // backoff reaches that cap after a few attempts, and 15 attempts cover about a
 // minute, which is long enough for a rolling deployment to finish.
 const RECONNECTION_ATTEMPTS = 15
+
+// The platform names a server by its canonical name (e.g. the `windows_mcp` driver), but the
+// user's config key is free text: `Windows_mcp` and `windows_mcp` are the same server to a
+// human. Exact match wins; otherwise accept a single case-insensitive match.
+function resolveServer(
+  servers: Record<string, ServerConfig>,
+  requested: string,
+): [string, ServerConfig] | undefined {
+  if (servers[requested]) return [requested, servers[requested]]
+  const wanted = requested.toLowerCase()
+  const matches = Object.keys(servers).filter((n) => n.toLowerCase() === wanted)
+  return matches.length === 1 ? [matches[0], servers[matches[0]]] : undefined
+}
 
 function buildToolkitConfigs(
   allTools: ServerToolInfo[],
@@ -68,6 +82,18 @@ export class SocketIOService {
     private onFatalDisconnect?: () => void,
   ) {
     this.clientId = getInstallationId()
+  }
+
+  private reportUnknownServer(requested: string, sessionId?: string, toolName?: string): void {
+    const configured = Object.keys(this.config.servers)
+    this.logger.error(`Unknown server: ${requested} (configured: ${configured.join(', ') || 'none'})`)
+    reportMcpError(new Error(`Unknown server: ${requested}`), {
+      operation: 'unknown_server',
+      serverName: requested,
+      configuredServers: configured,
+      toolName,
+      sessionId,
+    })
   }
 
   connect(): void {
@@ -163,15 +189,16 @@ socket.on('connect', async () => {
         data: { server: string; params: { uri: string }; session_id?: string },
         callback: (r: unknown) => void,
       ) => {
-        const { server: serverName, params, session_id } = data
+        const { server: requestedName, params, session_id } = data
         const uri = params?.uri
-        const conf: ServerConfig | undefined = this.config.servers[serverName]
+        const resolved = resolveServer(this.config.servers, requestedName)
 
-        if (!conf) {
-          this.logger.error(`Unknown server: ${serverName}`)
-          callback({ error: `Unknown server: ${serverName}` })
+        if (!resolved) {
+          this.reportUnknownServer(requestedName, session_id)
+          callback({ error: `Unknown server: ${requestedName}` })
           return
         }
+        const [serverName, conf] = resolved
 
         const readId = this.logger.resourceRead(serverName, uri, session_id)
         try {
@@ -185,6 +212,7 @@ socket.on('connect', async () => {
           callback(result)
         } catch (e) {
           this.logger.resourceReadError(serverName, uri, String(e), session_id, readId)
+          reportMcpError(e, { operation: 'resource_read', serverName, conf, sessionId: session_id })
           callback({ error: String(e) })
         }
       },
@@ -200,14 +228,15 @@ socket.on('connect', async () => {
         },
         callback: (r: unknown) => void,
       ) => {
-const { server: serverName, params, session_id } = data
-        const conf: ServerConfig | undefined = this.config.servers[serverName]
+const { server: requestedName, params, session_id } = data
+        const resolved = resolveServer(this.config.servers, requestedName)
 
-        if (!conf) {
-          this.logger.error(`Unknown server: ${serverName}`)
-          callback({ error: `Unknown server: ${serverName}` })
+        if (!resolved) {
+          this.reportUnknownServer(requestedName, session_id, params?.name)
+          callback({ error: `Unknown server: ${requestedName}` })
           return
         }
+        const [serverName, conf] = resolved
 
         const callId = this.logger.toolCall(serverName, params.name, params.arguments, session_id)
         try {
@@ -247,6 +276,7 @@ const { server: serverName, params, session_id } = data
           callback(result)
         } catch (e) {
           this.logger.toolError(serverName, params.name, String(e), session_id, callId)
+          reportMcpError(e, { operation: 'tool_call', serverName, conf, toolName: params.name, sessionId: session_id })
           callback({ error: String(e) })
         }
       },
@@ -276,9 +306,12 @@ const { server: serverName, params, session_id } = data
         const errors: string[] = []
         const serversConfig = this.config.servers
 
+        const requested = server_name ? resolveServer(serversConfig, server_name) : undefined
+        if (server_name && !requested) this.reportUnknownServer(server_name, session_id)
+
         const targets: Array<[string, ServerConfig]> = server_name
-          ? serversConfig[server_name]
-            ? [[server_name, serversConfig[server_name]]]
+          ? requested
+            ? [requested]
             : []
           : Object.entries(serversConfig).filter(([, c]) => c.stateful)
 
@@ -288,6 +321,7 @@ const { server: serverName, params, session_id } = data
             spawned.push(name)
           } catch (e) {
             errors.push(`${name}: ${e}`)
+            reportMcpError(e, { operation: 'session_start', serverName: name, conf, sessionId: session_id })
           }
         }
 
@@ -360,6 +394,7 @@ async function discoverAll(
     } else {
       const reason = r.reason instanceof Error ? r.reason.message : String(r.reason)
       logger?.error(`Failed to discover from "${name}": ${reason}`)
+      reportMcpError(r.reason, { operation: 'discover', serverName: name, conf: entries[i][1] })
     }
   })
   return {
