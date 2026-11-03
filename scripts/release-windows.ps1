@@ -67,7 +67,9 @@ finally {
   git checkout --quiet $original
 }
 
-$assets = (Get-Draft).assets.name
+# electron-builder may have recreated the draft, so the id from before the build can be stale.
+$draft = Get-Draft
+$assets = $draft.assets.name
 $missing = @($installer, 'latest.yml', 'latest-mac.yml') | Where-Object { $assets -notcontains $_ }
 if ($missing) { throw "Draft $tag is missing $($missing -join ', '); not publishing. Check the macOS job." }
 
