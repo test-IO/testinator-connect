@@ -48,8 +48,12 @@ export function saveConfig(config: AppConfig): void {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
 }
 
+// A trailing `@<version>` (e.g. `windows-mcp@0.8.5`) is a package pin, not part of the
+// server's identity. The platform finds servers by their bare name, so drop it.
+const VERSION_SUFFIX = /@v?\d[\w.+-]*$/
+
 export function sanitizeServerName(name: string): string {
-  let result = name.replace(/^[^a-zA-Z]+/, '')
+  let result = name.replace(VERSION_SUFFIX, '').replace(/^[^a-zA-Z]+/, '')
   result = result.replace(/[^a-zA-Z0-9_]+$/, '')
   return result.replace(/[^a-zA-Z0-9_]/g, '_')
 }
