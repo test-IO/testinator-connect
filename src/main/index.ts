@@ -13,7 +13,7 @@ import { loadConfig, saveConfig, getConfigPath, getInstallationId } from './conf
 import { Logger } from './service/logger'
 import { ConnectService } from './service/connect-service'
 import { sessionManager } from './service/session-manager'
-import { discoverServerTools } from './service/mcp-client'
+import { closeAllClients, discoverServerTools } from './service/mcp-client'
 import { installBrowser, isBrowserInstalled } from './playwright'
 import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
 import { createUpdater } from './updater'
@@ -316,6 +316,7 @@ app.whenReady().then(() => {
     createUpdater({
       getWindow: () => mainWindow,
       getActiveSessionCount: () => Object.keys(sessionManager.listSessions()).length,
+      prepareForInstall: stopMcpServers,
       logger,
     }),
   )
@@ -335,6 +336,34 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => {
-  sessionManager.cleanupAll().catch(() => {})
+// Stops every MCP server process Connect started and waits for them to exit, for at most
+// SHUTDOWN_TIMEOUT_MS. Without this the app can exit first and leave the bundled uv running
+// from the install folder, where it blocks the next update. Concurrent callers share one run.
+const SHUTDOWN_TIMEOUT_MS = 5000
+let mcpShutdown: Promise<void> | null = null
+
+function stopMcpServers(): Promise<void> {
+  mcpShutdown ??= (async () => {
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, SHUTDOWN_TIMEOUT_MS)
+    })
+    const stopped = Promise.allSettled([
+      service.isRunning() ? service.stop() : Promise.resolve(),
+      closeAllClients(),
+    ])
+    await Promise.race([stopped, timeout])
+    clearTimeout(timer)
+  })().finally(() => {
+    mcpShutdown = null
+  })
+  return mcpShutdown
+}
+
+let quitting = false
+app.on('before-quit', (event) => {
+  if (quitting) return
+  quitting = true
+  event.preventDefault()
+  void stopMcpServers().finally(() => app.quit())
 })
