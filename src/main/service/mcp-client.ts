@@ -4,6 +4,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { ServerConfig } from '../../shared/ipc-types'
 import { resolveCommand } from '../uv'
+import { cleanStderrLines } from '../mcp-tool-failure'
 
 export interface ToolDefinition {
   name: string
@@ -35,6 +36,7 @@ export interface ServerResourceInfo {
 export interface LiveSession {
   client: Client
   close: () => Promise<void>
+  stderrTail: () => string
 }
 
 function makeClient(): Client {
@@ -89,13 +91,7 @@ async function connect(client: Client, built: ReturnType<typeof buildTransport>)
   } catch (e) {
     // The exit can be reported before the last stderr chunk is delivered.
     await new Promise((resolve) => setImmediate(resolve))
-    const stderr = built.stderrTail()
-      .replace(/\x1b\[[0-9;]*m/g, '')
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(-STDERR_REPORT_LINES)
-      .join(' | ')
+    const stderr = cleanStderrLines(built.stderrTail(), STDERR_REPORT_LINES).join(' | ')
     if (!stderr) throw e
     const message = e instanceof Error ? e.message : String(e)
     throw new Error(`${message} (server stderr: ${stderr})`, { cause: e })
@@ -189,6 +185,19 @@ export type ContentBlock =
   | { type: 'resource_link'; uri: string; name?: string; description?: string; mimeType?: string }
   | { type: string; [k: string]: unknown }
 
+// The server's stderr at the time a result came back, for diagnosing failed calls. Kept off
+// the result itself because that object is sent to the platform as-is.
+const stderrByResult = new WeakMap<SerializedToolResult, () => string>()
+
+export function rememberStderr(result: SerializedToolResult, tail: () => string): SerializedToolResult {
+  stderrByResult.set(result, tail)
+  return result
+}
+
+export function stderrOfResult(result: SerializedToolResult): string {
+  return stderrByResult.get(result)?.() ?? ''
+}
+
 export async function callToolStateless(
   conf: ServerConfig,
   toolName: string,
@@ -196,9 +205,10 @@ export async function callToolStateless(
 ): Promise<SerializedToolResult> {
   const client = makeClient()
   try {
-    await connect(client, buildTransport(conf))
+    const built = buildTransport(conf)
+    await connect(client, built)
     const res = await client.callTool({ name: toolName, arguments: arguments_ })
-    return serializeToolResult(res)
+    return rememberStderr(serializeToolResult(res), built.stderrTail)
   } finally {
     await client.close().catch(() => {})
   }
@@ -206,10 +216,12 @@ export async function callToolStateless(
 
 export async function openPersistentSession(conf: ServerConfig): Promise<LiveSession> {
   const client = makeClient()
-  await connect(client, buildTransport(conf))
+  const built = buildTransport(conf)
+  await connect(client, built)
   return {
     client,
     close: () => client.close().catch(() => {}),
+    stderrTail: built.stderrTail,
   }
 }
 

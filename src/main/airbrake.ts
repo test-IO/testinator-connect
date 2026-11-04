@@ -1,6 +1,8 @@
-import { app } from 'electron'
+import { app, screen } from 'electron'
 import { Notifier } from '@airbrake/node'
 import { getInstallationId } from './config'
+import { FailureThrottle, McpToolFailureError, stderrForReport } from './mcp-tool-failure'
+import type { ToolFailure } from './mcp-tool-failure'
 import type { ServerConfig } from '../shared/ipc-types'
 
 const projectId = Number(import.meta.env.AIRBRAKE_PROJECT_ID)
@@ -46,6 +48,7 @@ export type McpErrorOperation =
   | 'tool_call'
   | 'resource_read'
   | 'unknown_server'
+  | 'tool_failure'
 
 export interface McpErrorContext {
   operation: McpErrorOperation
@@ -55,6 +58,9 @@ export interface McpErrorContext {
   configuredServers?: string[]
   toolName?: string
   sessionId?: string
+  // Tail of the server's stderr: often the only trace of why it misbehaved.
+  stderrTail?: string
+  details?: Record<string, unknown>
 }
 
 const SECRET_FLAG = /token|key|secret|password|passwd|auth|credential/i
@@ -81,6 +87,25 @@ function redactArgs(args: string[]): string[] {
     }
   }
   return out
+}
+
+// Monitor layout and the Windows session type: what screenshot and input problems on a
+// customer's machine usually come down to (mixed DPI scaling, remote or locked sessions).
+function describeMachine(): Record<string, unknown> {
+  try {
+    const primaryId = screen.getPrimaryDisplay().id
+    return {
+      sessionName: process.env.SESSIONNAME,
+      displays: screen.getAllDisplays().map((d) => ({
+        primary: d.id === primaryId,
+        size: `${d.size.width}x${d.size.height}`,
+        scaleFactor: d.scaleFactor,
+        bounds: `${d.bounds.x},${d.bounds.y}`,
+      })),
+    }
+  } catch {
+    return { sessionName: process.env.SESSIONNAME }
+  }
 }
 
 // Reports a failure talking to an MCP server, with enough context (server, command, args,
@@ -113,9 +138,35 @@ export function reportMcpError(error: unknown, ctx: McpErrorContext): void {
           headerNames: conf.headers ? Object.keys(conf.headers) : undefined,
         },
         configuredServers: ctx.configuredServers,
+        details: ctx.details,
+        stderrTail: ctx.stderrTail && stderrForReport(ctx.stderrTail),
+        machine: describeMachine(),
       },
     })
   } catch {
     // Reporting must never break the caller.
   }
+}
+
+const toolFailureThrottle = new FailureThrottle()
+
+// Reports a tool call the server answered with an error (or error text) instead of throwing:
+// the failures that never reach reportMcpError, such as windows-mcp's CONTROL_PREEMPTED.
+// Tool arguments are left out on purpose, they can hold typed text.
+export function reportMcpToolFailure(
+  failure: ToolFailure,
+  ctx: Omit<McpErrorContext, 'operation' | 'details'> & { toolName: string },
+): void {
+  if (!airbrake) return
+  if (!toolFailureThrottle.shouldReport(`${ctx.serverName}|${ctx.toolName}|${failure.summary}`)) return
+  reportMcpError(new McpToolFailureError(ctx.serverName, ctx.toolName, failure), {
+    ...ctx,
+    operation: 'tool_failure',
+    details: {
+      resultKind: failure.kind,
+      code: failure.code,
+      status: failure.status,
+      resultText: failure.text,
+    },
+  })
 }

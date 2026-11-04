@@ -4,6 +4,7 @@ import {
   openPersistentSession,
   serializeToolResult,
   readResourceStateless,
+  rememberStderr,
   type LiveSession,
 } from './mcp-client'
 
@@ -53,7 +54,10 @@ class SessionManager {
         const session = this.sessions.get(sessionId)?.get(serverName)
         if (!session) throw new Error(`Session ${sessionId}/${serverName} not found`)
         const res = await session.client.callTool({ name: toolName, arguments: arguments_ })
-        return serializeToolResult(res as { isError?: boolean; content?: unknown[] })
+        return rememberStderr(
+          serializeToolResult(res as { isError?: boolean; content?: unknown[] }),
+          session.stderrTail,
+        )
       } catch (err) {
         if (attempt < maxRetries - 1) {
           await this.destroyServerInSession(sessionId, serverName)
