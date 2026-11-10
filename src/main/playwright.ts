@@ -125,10 +125,8 @@ export function isBrowserInstalled(browser: string): boolean {
   }
 }
 
-// Node (Electron 33 = Node 20) trusts only its bundled Mozilla CA list, not the OS store.
-// Behind a TLS-inspecting proxy, whose root CA lives in the OS store, downloads then fail
-// with SELF_SIGNED_CERT_IN_CHAIN. `--use-system-ca` is unavailable on Node 20, so export the
-// OS trust store to a PEM and hand it over via NODE_EXTRA_CA_CERTS (additive to the bundle).
+// Node trusts only its bundled CAs; export the OS store for TLS-inspecting
+// proxies (--use-system-ca is undocumented under Electron's BoringSSL).
 const EXPORT_WINDOWS_CERTS_PS = `
 $out = New-Object System.Text.StringBuilder
 $stores = 'Cert:\\LocalMachine\\Root','Cert:\\LocalMachine\\CA','Cert:\\CurrentUser\\Root','Cert:\\CurrentUser\\CA'
