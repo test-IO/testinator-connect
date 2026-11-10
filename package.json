@@ -5,6 +5,7 @@
   "author": "test IO GmbH",
   "main": "./out/main/index.js",
   "scripts": {
+    "postinstall": "install-electron",
     "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev",
     "build": "electron-vite build",
     "test": "vitest run",

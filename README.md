@@ -2,7 +2,7 @@
 
 A self-contained desktop app that provides a UI for configuring and monitoring **Agentic QA connect** — the bridge that connects local MCP (Model Context Protocol) servers to the Agentic QA platform, over a Socket.IO link to the remote Agentic QA connect-gateway.
 
-Built with **Electron 33 + electron-vite + Svelte 5 + TypeScript**.
+Built with **Electron 45 + electron-vite + Svelte 5 + TypeScript**.
 
 ---
 
@@ -123,7 +123,7 @@ docs/
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| Node.js 23 | Build + dev | Pinned via `.nvmrc` — see below |
+| Node.js 26 | Build + dev | Pinned via `.nvmrc` — see below |
 | npm ≥ 10 | Package manager | Comes with Node |
 
 No Python required — Python MCP servers are handled via a bundled `uv` binary.
@@ -134,14 +134,14 @@ No Python required — Python MCP servers are handled via a bundled `uv` binary.
 
 ### 1. Switch to the correct Node version
 
-The project ships with an `.nvmrc` pinned to Node 23 (the version used to build and test this app). If you use **nvm**:
+The project ships with an `.nvmrc` pinned to Node 26 (the version used to build and test this app). If you use **nvm**:
 
 ```bash
 cd testinator-connect
-nvm use          # reads .nvmrc and activates Node 23
+nvm use          # reads .nvmrc and activates Node 26
 ```
 
-If Node 23 is not installed yet:
+If Node 26 is not installed yet:
 
 ```bash
 nvm install      # installs the version from .nvmrc and activates it

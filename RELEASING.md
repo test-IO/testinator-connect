@@ -57,7 +57,7 @@ This stays until signing moves to Azure Artifact Signing.
 
 One-time setup on that computer:
 
-- Git, Node.js 20, SafeNet Authentication Client with "Single Logon" turned on (otherwise it
+- Git, Node.js 26 (from `.nvmrc`), SafeNet Authentication Client with "Single Logon" turned on (otherwise it
   asks for the token password once per signed file).
 - A clone of this repo with a `.env.local` next to `package.json`:
   ```
