@@ -23,6 +23,7 @@
   let pwCaps = $state<string[]>(['vision'])
   let pwGrantPermissions = $state<string[]>([])
   let pwHeadless = $state(false)
+  let pwIgnoreHttpsErrors = $state(true)
   let pwDevice = $state('')
   let pwViewport = $state('1280x720')
   const pwIsolated = true
@@ -154,6 +155,7 @@
         savedAuthToken = savedConfig.auth_token ?? ''
         const pw = savedConfig.servers?.['Playwright_MCP']
         if (pw?.args) parsePlaywrightArgs(pw.args)
+        pwIgnoreHttpsErrors = pw?.ignore_https_errors ?? true
       }
     } catch (e) { loadError = String(e) }
     configLoaded = true
@@ -226,6 +228,7 @@
         command: 'npx',
         args: generatePlaywrightArgs(),
         stateful: true,
+        ignore_https_errors: pwIgnoreHttpsErrors,
       }
       const config: AppConfig = {
         deployment_url: deploymentUrl,
@@ -439,6 +442,21 @@
           <span class="toggle-label">{pwHeadless ? 'On' : 'Off'}</span>
         </label>
         <span class="field-desc">Run browser without a visible window.</span>
+      </div>
+
+      <!-- Ignore HTTPS errors -->
+      <div class="field">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label>Ignore HTTPS errors <span class="hint">--ignore-https-errors</span></label>
+        <label class="toggle">
+          <input type="checkbox" bind:checked={pwIgnoreHttpsErrors} />
+          <span class="track"></span>
+          <span class="toggle-label">{pwIgnoreHttpsErrors ? 'On' : 'Off'}</span>
+        </label>
+        <span class="field-desc">
+          Open test sites with self-signed or untrusted certificates, as hosted runs do.
+          Turn off to block pages whose certificate cannot be verified, e.g. on untrusted networks.
+        </span>
       </div>
 
       <!-- Device emulation -->

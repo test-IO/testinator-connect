@@ -209,7 +209,8 @@ Config is saved to the OS user-data directory:
       "type": "stdio",
       "command": "npx",
       "args": ["@playwright/mcp@latest", "--caps", "vision", "--image-responses", "allow", "--viewport-size", "1280x720", "--timeout-action", "60000", "--isolated"],
-      "stateful": true
+      "stateful": true,
+      "ignore_https_errors": true
     },
     "MyPythonTool": {
       "type": "stdio",
@@ -233,6 +234,8 @@ Config is saved to the OS user-data directory:
 - `sse` — connects to a Server-Sent Events MCP server. `url` required.
 
 **`stateful: true`** — the server gets a dedicated subprocess per remote session, providing complete browser isolation between parallel sessions.
+
+**`ignore_https_errors`** (Playwright_MCP only, default `true`) - the browser opens sites with self-signed or untrusted certificates, matching hosted runs by default. Set it to `false` (Config page: "Ignore HTTPS errors") to block such pages. This makes Connect stricter than hosted runs: testinator-tooling always passes `--ignore-https-errors` and has no way to turn it off.
 
 ### Recommended macOS servers
 

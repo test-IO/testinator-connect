@@ -21,4 +21,10 @@ describe('resolvePlaywrightMcpCommand', () => {
     expect(args.filter((a) => a === '--ignore-https-errors')).toHaveLength(1)
     expect(args.filter((a) => a === '--isolated')).toHaveLength(1)
   })
+
+  it('drops --ignore-https-errors when the setting is off', () => {
+    const { args } = resolvePlaywrightMcpCommand(['@playwright/mcp@latest', '--ignore-https-errors'], false)
+
+    expect(args.slice(1)).toEqual(['--isolated'])
+  })
 })

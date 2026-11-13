@@ -63,18 +63,19 @@ function writeMcpConfig(userConfigPath?: string): string {
   return configPath
 }
 
-// --ignore-https-errors matches tooling's hosted browsers (adapters/playwright.py).
-const ENFORCED_MCP_FLAGS = ['--isolated', '--ignore-https-errors']
+const IGNORE_HTTPS_ERRORS = '--ignore-https-errors'
 
-export function resolvePlaywrightMcpCommand(args: string[]): {
+// Default on to match tooling's hosted browsers (adapters/playwright.py).
+export function resolvePlaywrightMcpCommand(args: string[], ignoreHttpsErrors = true): {
   command: string
   args: string[]
   env: Record<string, string>
 } {
   const cliPath = path.join(getNodeModulesRoot(), '@playwright', 'mcp', 'cli.js')
   // Older or hand-edited configs may lack these, so enforce them at spawn time.
-  const mcpArgs = args.slice(1)
-  for (const flag of ENFORCED_MCP_FLAGS) if (!mcpArgs.includes(flag)) mcpArgs.push(flag)
+  const mcpArgs = args.slice(1).filter((a) => a !== IGNORE_HTTPS_ERRORS)
+  if (!mcpArgs.includes('--isolated')) mcpArgs.push('--isolated')
+  if (ignoreHttpsErrors) mcpArgs.push(IGNORE_HTTPS_ERRORS)
 
   // Dropped here because writeMcpConfig merges its content into ours instead.
   const configIndex = mcpArgs.indexOf('--config')
