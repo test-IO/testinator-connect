@@ -55,7 +55,7 @@ const STDERR_REPORT_LINES = 5
 function buildTransport(conf: ServerConfig): { transport: Transport; stderrTail: () => string } {
   const type = conf.type ?? 'stdio'
   if (type === 'stdio') {
-    const resolved = resolveCommand(conf.command ?? '', conf.args ?? [])
+    const resolved = resolveCommand(conf.command ?? '', conf.args ?? [], conf.ignore_https_errors)
     const transport = new StdioClientTransport({
       command: resolved.command,
       args: resolved.args,
