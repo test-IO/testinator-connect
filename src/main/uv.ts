@@ -42,9 +42,10 @@ function pinWindowsMcpPython(args: string[], insertAt: number): string[] {
 export function resolveCommand(
   command: string,
   args: string[],
+  ignoreHttpsErrors?: boolean,
 ): { command: string; args: string[]; env?: Record<string, string> } {
   if (isPlaywrightMcpCommand(command, args)) {
-    return resolvePlaywrightMcpCommand(args)
+    return resolvePlaywrightMcpCommand(args, ignoreHttpsErrors)
   }
 
   if (isNpxCommand(command)) {
