@@ -76,3 +76,10 @@ jobs:
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
         run: npm run dist:win:unsigned
+
+      # Unsigned test build; never attach it to a release.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          retention-days: 1
