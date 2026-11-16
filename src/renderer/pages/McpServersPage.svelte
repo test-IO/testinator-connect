@@ -16,6 +16,7 @@
   let saving = $state(false)
   let saved = $state(false)
   let saveError = $state('')
+  let restartNotice = $state(false)
   let savedConfig: AppConfig | null = null
 
   // ── json editor state ────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@
       await window.electronAPI.saveConfig(config)
       savedConfig = config
       saved = true
+      restartNotice = true
       setTimeout(() => { saved = false }, 3000)
     } catch (e) {
       saveError = e instanceof Error ? e.message : String(e)
@@ -121,6 +123,7 @@
       savedConfig = config
       loadCards(config)
       jsonSaved = true
+      restartNotice = true
       setTimeout(() => { jsonSaved = false }, 3000)
     } catch (e) {
       parseError = e instanceof Error ? e.message : String(e)
@@ -164,6 +167,13 @@
       {/if}
     </div>
   </div>
+
+  {#if restartNotice}
+    <div class="banner notice">
+      Settings saved. <strong>Restart the service</strong> on the Dashboard for changes to take effect.
+      <button class="dismiss-btn" onclick={() => restartNotice = false}>✕</button>
+    </div>
+  {/if}
 
   <!-- ── cards view ─────────────────────────────────────────────────────────── -->
   {#if view === 'cards'}
@@ -294,6 +304,10 @@
 
   .banner { margin: 10px 24px 0; padding: 8px 12px; border-radius: 5px; font-size: 12px; font-family: monospace; }
   .banner.error { background: #3b1515; color: #f87171; }
+  .banner.notice { background: #1c2a1c; color: #86efac; display: flex; align-items: center; gap: 8px; font-family: inherit; }
+  .banner.notice strong { color: #4ade80; }
+  .dismiss-btn { margin-left: auto; background: none; border: none; color: #86efac; cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; }
+  .dismiss-btn:hover { color: #fff; }
 
   /* cards */
   .server-list { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
