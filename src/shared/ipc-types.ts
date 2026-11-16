@@ -134,6 +134,8 @@ export interface ServerConfig {
   url?: string
   headers?: Record<string, string>
   stateful?: boolean
+  // Playwright MCP only; missing means true.
+  ignore_https_errors?: boolean
 }
 
 export interface AppConfig {
