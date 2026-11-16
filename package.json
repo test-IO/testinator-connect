@@ -41,9 +41,6 @@
     "typescript": "^5.6.0",
     "vitest": "^2.1.9"
   },
-  "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.61.0"
-  },
   "allowScripts": {
     "esbuild@0.21.5": true,
     "fsevents@2.3.2": true,
