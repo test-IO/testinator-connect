@@ -41,8 +41,9 @@ if ($original -eq 'HEAD') { $original = git rev-parse HEAD }
 git fetch --quiet origin
 git checkout --quiet --detach $draft.target_commitish
 try {
-  npm ci
-  if ($LASTEXITCODE) { throw 'npm ci failed' }
+  # The lockfile only carries the macOS rollup binary (npm/cli#4828).
+  npm install --no-package-lock
+  if ($LASTEXITCODE) { throw 'npm install failed' }
 
   $zip = Join-Path $env:TEMP 'uv-win.zip'
   Invoke-WebRequest 'https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip' -OutFile $zip
