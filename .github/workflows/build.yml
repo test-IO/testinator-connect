@@ -3,6 +3,7 @@ name: Build
 # Site-only changes (landing page, docs) do not rebuild the app; site.yml tests them.
 on:
   push:
+    branches: [main]
     paths-ignore: ['docs/**', 'dev-docs/**', 'tests/site/**', 'vitest.site.config.mts', '.github/workflows/site.yml', '.claude/**']
   pull_request:
     branches: [main]
@@ -15,15 +16,15 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Download uv binaries
         run: |
@@ -52,15 +53,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Download uv binary
         shell: pwsh
@@ -76,3 +77,10 @@ jobs:
           AIRBRAKE_PROJECT_ID: ${{ secrets.AIRBRAKE_PROJECT_ID }}
           AIRBRAKE_PROJECT_KEY: ${{ secrets.AIRBRAKE_PROJECT_KEY }}
         run: npm run dist:win:unsigned
+
+      # Unsigned test build; never attach it to a release.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          retention-days: 1
