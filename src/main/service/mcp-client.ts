@@ -37,11 +37,27 @@ export interface LiveSession {
   close: () => Promise<void>
 }
 
+// Every client that may own a server process. Several servers run the bundled uv from the
+// install folder, so on quit (and before an update) they all have to be stopped: the
+// installer cannot replace a file that is still in use.
+const openClients = new Set<Client>()
+
 function makeClient(): Client {
-  return new Client(
+  const client = new Client(
     { name: 'agentic-qa-connect', version: '1.0.0' },
     { capabilities: {} },
   )
+  openClients.add(client)
+  return client
+}
+
+async function closeClient(client: Client): Promise<void> {
+  openClients.delete(client)
+  await client.close().catch(() => {})
+}
+
+export async function closeAllClients(): Promise<void> {
+  await Promise.allSettled([...openClients].map(closeClient))
 }
 
 type Transport = StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport
@@ -140,7 +156,7 @@ export async function discoverServer(
 
     return { name: serverName, tools, resources }
   } finally {
-    await client.close().catch(() => {})
+    await closeClient(client)
   }
 }
 
@@ -163,7 +179,7 @@ export async function readResourceStateless(
     const res = await client.readResource({ uri })
     return res.contents
   } finally {
-    await client.close().catch(() => {})
+    await closeClient(client)
   }
 }
 
@@ -200,16 +216,21 @@ export async function callToolStateless(
     const res = await client.callTool({ name: toolName, arguments: arguments_ })
     return serializeToolResult(res)
   } finally {
-    await client.close().catch(() => {})
+    await closeClient(client)
   }
 }
 
 export async function openPersistentSession(conf: ServerConfig): Promise<LiveSession> {
   const client = makeClient()
-  await connect(client, buildTransport(conf))
+  try {
+    await connect(client, buildTransport(conf))
+  } catch (e) {
+    await closeClient(client)
+    throw e
+  }
   return {
     client,
-    close: () => client.close().catch(() => {}),
+    close: () => closeClient(client),
   }
 }
 

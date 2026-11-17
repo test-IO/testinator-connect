@@ -23,12 +23,14 @@ const realPlatform = process.platform
 function setup(activeSessions = 0) {
   const send = vi.fn()
   const logger = { info: vi.fn(), success: vi.fn(), warning: vi.fn(), error: vi.fn() }
+  const prepareForInstall = vi.fn(async () => undefined)
   const deps = {
     getWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
     getActiveSessionCount: () => activeSessions,
+    prepareForInstall,
     logger,
   } as unknown as UpdaterDeps
-  return { updater: createUpdater(deps), send, logger }
+  return { updater: createUpdater(deps), send, logger, prepareForInstall }
 }
 
 beforeEach(() => {
@@ -38,7 +40,7 @@ beforeEach(() => {
   fakeApp.isPackaged = true
   fakeUpdater.removeAllListeners()
   fakeUpdater.checkForUpdates.mockClear()
-  fakeUpdater.quitAndInstall.mockClear()
+  fakeUpdater.quitAndInstall.mockReset()
 })
 
 afterEach(() => {
@@ -100,11 +102,35 @@ describe('createUpdater', () => {
     expect(fakeUpdater.quitAndInstall).not.toHaveBeenCalled()
   })
 
-  it('installs silently and relaunches when idle', () => {
+  it('installs silently and relaunches when idle', async () => {
     const { updater } = setup()
     fakeUpdater.emit('update-downloaded', { version: '0.2.0' })
     expect(updater.install()).toEqual({ ok: true })
-    vi.runOnlyPendingTimers()
+    await vi.runOnlyPendingTimersAsync()
     expect(fakeUpdater.quitAndInstall).toHaveBeenCalledWith(true, true)
+  })
+
+  it('stops the MCP servers before it starts the installer', async () => {
+    const { updater, prepareForInstall } = setup()
+    const order: string[] = []
+    prepareForInstall.mockImplementation(async () => {
+      await Promise.resolve()
+      order.push('servers stopped')
+    })
+    fakeUpdater.quitAndInstall.mockImplementation(() => order.push('installer started'))
+    fakeUpdater.emit('update-downloaded', { version: '0.2.0' })
+    updater.install()
+    await vi.runOnlyPendingTimersAsync()
+    expect(order).toEqual(['servers stopped', 'installer started'])
+  })
+
+  it('does not start the installer when stopping the servers throws, and logs why', async () => {
+    const { updater, prepareForInstall, logger } = setup()
+    prepareForInstall.mockRejectedValue(new Error('boom'))
+    fakeUpdater.emit('update-downloaded', { version: '0.2.0' })
+    updater.install()
+    await vi.runOnlyPendingTimersAsync()
+    expect(fakeUpdater.quitAndInstall).not.toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith('Update install failed: boom')
   })
 })

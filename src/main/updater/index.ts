@@ -11,6 +11,9 @@ import type { UpdaterEvent } from './update-state'
 export interface UpdaterDeps {
   getWindow: () => BrowserWindow | null
   getActiveSessionCount: () => number
+  // quitAndInstall starts the installer before the app exits, so everything that keeps
+  // files in the install folder open (the MCP servers) has to be stopped first.
+  prepareForInstall: () => Promise<void>
   logger: Logger
 }
 
@@ -91,8 +94,9 @@ export function createUpdater(deps: UpdaterDeps): Updater {
       const decision = canInstallNow(deps.getActiveSessionCount())
       if (decision.ok) {
         // Silent install into the existing location, then relaunch.
-        setImmediate(() => {
+        setImmediate(async () => {
           try {
+            await deps.prepareForInstall()
             autoUpdater.quitAndInstall(true, true)
           } catch (e) {
             deps.logger.error(`Update install failed: ${e instanceof Error ? e.message : String(e)}`)
