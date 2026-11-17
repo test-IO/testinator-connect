@@ -4,6 +4,7 @@ import type { AppConfig, ServerConfig } from '../../shared/ipc-types'
 import {
   discoverServer,
   discoverServerTools,
+  stderrOfResult,
   type ServerToolInfo,
   type ServerResourceInfo,
   type ServerDiscoveryResult,
@@ -11,7 +12,8 @@ import {
 import { sessionManager } from './session-manager'
 import { getInstallationId } from '../config'
 import type { Logger } from './logger'
-import { reportMcpError } from '../airbrake'
+import { reportMcpError, reportMcpToolFailure } from '../airbrake'
+import { describeToolFailure } from '../mcp-tool-failure'
 
 // After the final attempt fails, the machine stays disconnected until the user
 // restarts the app. The limit therefore has to cover a Gateway restart, not
@@ -273,6 +275,16 @@ const { server: requestedName, params, session_id } = data
             )
           }
           this.logger.toolOk(serverName, params.name, result, session_id, callId)
+          const failure = describeToolFailure(result)
+          if (failure) {
+            reportMcpToolFailure(failure, {
+              serverName,
+              conf,
+              toolName: params.name,
+              sessionId: session_id,
+              stderrTail: stderrOfResult(result),
+            })
+          }
           callback(result)
         } catch (e) {
           this.logger.toolError(serverName, params.name, String(e), session_id, callId)
