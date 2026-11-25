@@ -16,6 +16,7 @@ import { sessionManager } from './service/session-manager'
 import { discoverServerTools } from './service/mcp-client'
 import { installBrowser, isBrowserInstalled } from './playwright'
 import { DEEP_LINK_PROTOCOL, parseDeepLink, extractDeepLinkUrl } from './deep-link'
+import { installAppMenu, APP_TITLE } from './app-menu'
 import { createUpdater } from './updater'
 import type { Updater } from './updater'
 import { IPC_TO_MAIN, IPC_TO_RENDERER } from '../shared/ipc-types'
@@ -144,7 +145,7 @@ async function redeemCode(payload: DeepLinkConfigPayload): Promise<string> {
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    title: 'Agentic QA - connect',
+    title: APP_TITLE,
     width: 1200,
     height: 750,
     minWidth: 900,
@@ -310,6 +311,7 @@ app.whenReady().then(() => {
     app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL)
   }
 
+  installAppMenu(() => mainWindow)
   createWindow()
   registerIpcHandlers()
   registerUpdaterIpc(
